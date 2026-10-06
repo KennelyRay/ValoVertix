@@ -1,7 +1,6 @@
 import { useDeferredValue, useId, useMemo, useState, type ReactNode } from "react";
 import type { CatalogSkin } from "@valovertix/assets";
 import { upgradeCount, type OwnedSkin } from "@valovertix/calc";
-import { CURRENCY } from "@valovertix/riot";
 import { LoadingBlock, PageHeader, RequireSession } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { EmptyNote, ErrorNote, Switch, Tabs } from "@/components/ui/primitives";
@@ -45,8 +44,13 @@ function Select({
 }
 
 function Skins() {
-  const { owned, catalog, tierById, themeById, tiers, offerIndex, isPending, error } =
+  const { owned, catalog, tierById, themeById, tiers, offerIndex, spending, isPending, error } =
     useSpending();
+  // Same prices as the spending estimate: store offers, or tier prices when Riot's list is unavailable.
+  const priceBySkin = useMemo(
+    () => new Map(spending?.priced.map((p) => [p.owned.skin.uuid, p]) ?? []),
+    [spending],
+  );
   const hideFree = useSettings((s) => s.hideFreeSkins);
   const setSettings = useSettings((s) => s.set);
   const [query, setQuery] = useState("");
@@ -59,7 +63,7 @@ function Skins() {
   const q = useDeferredValue(query.trim().toLowerCase());
   const searchId = useId();
 
-  const priceOf = (o: OwnedSkin) => offerIndex?.get(o.skin.levels[0]?.uuid ?? "")?.[CURRENCY.vp];
+  const priceOf = (o: OwnedSkin) => priceBySkin.get(o.skin.uuid)?.vp;
 
   const filtered = useMemo(() => {
     if (!owned) return [];
@@ -82,9 +86,9 @@ function Skins() {
       }
       return true;
     });
-    // priceOf only depends on offerIndex.
+    // priceOf only depends on priceBySkin.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [owned, hideFree, q, weapon, tier, theme, upgrades, price, offerIndex]);
+  }, [owned, hideFree, q, weapon, tier, theme, upgrades, price, priceBySkin]);
 
   const groups = useMemo(() => {
     if (!catalog) return [];
@@ -213,6 +217,7 @@ function Skins() {
       <SkinDrawer
         owned={open}
         offers={offerIndex}
+        price={open ? priceBySkin.get(open.skin.uuid) : undefined}
         tierName={
           open?.skin.tierId
             ? tierById.get(open.skin.tierId)?.displayName.replace(/ Edition$/, "")

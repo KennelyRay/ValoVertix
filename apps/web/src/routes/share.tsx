@@ -58,6 +58,7 @@ function Share() {
       showRiotId && session.riotId ? `${session.riotId.gameName}#${session.riotId.tagLine}` : null,
     spending: sp.spending,
     money: sp.money,
+    priceSource: sp.priceSource,
     currencyFormat: sp.currency.format,
     totalSkins: sp.owned?.length ?? 0,
     tierById: sp.tierById,

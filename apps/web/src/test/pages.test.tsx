@@ -13,6 +13,7 @@ import { CURRENCY, ITEM_TYPE } from "@valovertix/riot";
 import riot from "@/mocks/fixtures/riot.json";
 import staticData from "@/mocks/fixtures/static.json";
 import { VP_PACKS_PHP, vpRate } from "@/config/vp-prices";
+import { tierPriceVp } from "@/config/tier-prices";
 import { useSessionStore } from "@/features/auth/session-store";
 import { server } from "./server";
 import { renderApp, resetApp, signInFixtureAccount } from "./render";
@@ -219,6 +220,35 @@ describe("signed-in pages", () => {
     expect(within(document.getElementById("unpriced-list")!).getAllByRole("listitem")).toHaveLength(
       expected.unpriced.length,
     );
+  });
+
+  it("falls back to tier prices when Riot's price list returns 404", async () => {
+    server.use(
+      http.get("https://pd.*.a.pvp.net/store/v1/offers/", () =>
+        HttpResponse.json({}, { status: 404 }),
+      ),
+    );
+    const devName = new Map(staticData.contentTiers.map((t) => [t.uuid.toLowerCase(), t.devName]));
+    const tierTotal = owned
+      .filter((o) => !o.skin.isContractReward)
+      .reduce(
+        (sum, o) =>
+          sum +
+          (tierPriceVp(
+            o.skin.tierId ? devName.get(o.skin.tierId) : undefined,
+            o.skin.weaponCategory,
+          ) ?? 0),
+        0,
+      );
+    renderApp("/spending");
+    expect(
+      await screen.findByText(`${tierTotal.toLocaleString("en-PH")} VP`, {}, { timeout: 8000 }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Priced by tier: Riot's store price list isn't available/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Not available")).toBeInTheDocument();
+    expect(screen.queryByText(/Some data didn't load from Riot/)).not.toBeInTheDocument();
   });
 
   it("stats shows rank, aggregates and lazily loads more matches", async () => {

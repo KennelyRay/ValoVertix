@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { CatalogSkin } from "@valovertix/assets";
-import { vpToMoneyRange, type OfferIndex, type OwnedSkin } from "@valovertix/calc";
+import { vpToMoneyRange, type OfferIndex, type OwnedSkin, type PricedSkin } from "@valovertix/calc";
 import { CURRENCY } from "@valovertix/riot";
 import { Dialog, EstimateTag } from "@/components/ui/primitives";
 import { currencyConfig } from "@/features/data";
@@ -8,21 +8,33 @@ import { EstimateInfo } from "@/features/spending/estimate-notes";
 import { cn } from "@/lib/cn";
 import { fmtMoney, fmtVp } from "@/lib/format";
 
+type Price = Pick<PricedSkin, "vp" | "source"> | undefined;
+
 export function SkinDrawer({
   owned,
   offers,
+  price,
   tierName,
   onClose,
 }: {
   owned: OwnedSkin<CatalogSkin> | null;
+  /** Riot's price list, for Radianite upgrade costs. Null when unavailable. */
   offers: OfferIndex | null;
+  /** The skin's price as used in the spending estimate. */
+  price: Price;
   tierName: string | undefined;
   onClose: () => void;
 }) {
   return (
     <Dialog side open={Boolean(owned)} onClose={onClose} title={owned?.skin.name ?? ""}>
       {owned && (
-        <SkinDetail key={owned.skin.uuid} owned={owned} offers={offers} tierName={tierName} />
+        <SkinDetail
+          key={owned.skin.uuid}
+          owned={owned}
+          offers={offers}
+          price={price}
+          tierName={tierName}
+        />
       )}
     </Dialog>
   );
@@ -31,10 +43,12 @@ export function SkinDrawer({
 function SkinDetail({
   owned,
   offers,
+  price,
   tierName,
 }: {
   owned: OwnedSkin<CatalogSkin>;
   offers: OfferIndex | null;
+  price: Price;
   tierName: string | undefined;
 }) {
   const { skin } = owned;
@@ -46,7 +60,7 @@ function SkinDetail({
   const [preview, setPreview] = useState(skin.chromas[0]?.fullRender ?? skin.icon);
 
   const currency = currencyConfig();
-  const vp = offers?.get(skin.levels[0]?.uuid ?? "")?.[CURRENCY.vp];
+  const vp = price?.vp;
   const radianite = (id: string) => offers?.get(id)?.[CURRENCY.radianite];
 
   return (
@@ -73,9 +87,11 @@ function SkinDetail({
         </div>
         <div>
           <dt className="flex items-center gap-2 text-muted">
-            Store price <EstimateTag />
+            {price?.source === "tier" ? "Standard tier price" : "Store price"} <EstimateTag />
           </dt>
-          <dd className="font-display text-xl font-bold">{vp ? fmtVp(vp) : "No store offer"}</dd>
+          <dd className="font-display text-xl font-bold">
+            {vp ? fmtVp(vp) : skin.isContractReward ? "Battle pass or contract" : "No store offer"}
+          </dd>
         </div>
         <div>
           <dt className="flex items-center gap-2 text-muted">

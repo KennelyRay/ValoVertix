@@ -24,9 +24,12 @@ import {
   summarizeMatch,
   vpToMoneyRange,
   type MatchSummary,
+  type PriceSource,
 } from "@valovertix/calc";
+import type { CatalogSkin } from "@valovertix/assets";
 import { CURRENCY, createRiotClient, type ItemTypeKey, type RiotClient } from "@valovertix/riot";
 import { MATCH_DETAILS_PAGE } from "@/config/app";
+import { tierPriceVp } from "@/config/tier-prices";
 import { DEFAULT_CURRENCY, VP_PRICES, vpRate } from "@/config/vp-prices";
 import { riotKey } from "@/lib/query-client";
 import { useSettings } from "./settings-store";
@@ -72,18 +75,26 @@ function useClient(): { session: Session | null; client: RiotClient | null } {
   return { session, client };
 }
 
-function useRiotQuery<T>(name: string, fn: (c: RiotClient, signal: AbortSignal) => Promise<T>) {
+function useRiotQuery<T>(
+  name: string,
+  fn: (c: RiotClient, signal: AbortSignal) => Promise<T>,
+  opts: { retryOnMount?: boolean; staleTime?: number } = {},
+) {
   const { session, client } = useClient();
   return useQuery({
     queryKey: riotKey(session?.id ?? "none", session?.shard, name),
     queryFn: ({ signal }) => fn(client!, signal),
     enabled: Boolean(client),
+    ...opts,
   });
 }
 
 export const useOwned = (type: ItemTypeKey) =>
   useRiotQuery(`owned.${type}`, (c, s) => c.ownedItems(type, s));
-export const useOffers = () => useRiotQuery("offers", (c, s) => c.offers(s));
+// Prices change rarely. If the price list fails, don't re-request it on every page:
+// the tier fallback takes over until the user retries.
+export const useOffers = () =>
+  useRiotQuery("offers", (c, s) => c.offers(s), { retryOnMount: false, staleTime: Infinity });
 export const useWallet = () => useRiotQuery("wallet", (c, s) => c.wallet(s));
 export const useLoadout = () => useRiotQuery("loadout", (c, s) => c.loadout(s));
 export const useAccountXp = () => useRiotQuery("xp", (c, s) => c.accountXp(s));
@@ -175,17 +186,34 @@ export function useSpending() {
   const agentsOwned = useOwned("agent");
   const agents = useStatic("agents");
 
+  const { tierById } = skins;
+  // Riot's price list can be unavailable (404). Then every skin is priced at its tier's
+  // standard list price instead, and the UI says so.
+  const priceSource: PriceSource | null = offers.data ? "offer" : offers.isError ? "tier" : null;
+
   const result = useMemo(() => {
-    if (!skins.owned || !offers.data) return null;
+    if (!skins.owned || !priceSource) return null;
     const paid = agents.data && agentsOwned.data ? paidAgentIds(agentsOwned.data, agents.data) : [];
     return computeSpending({
       ownedSkins: skins.owned,
-      offers: indexOffers(offers.data),
+      offers: indexOffers(offers.data ?? []),
       currency: { vp: CURRENCY.vp, radianite: CURRENCY.radianite },
       includeAgents,
       paidAgentIds: paid,
+      ...(priceSource === "tier" && {
+        fallbackVp: (s: CatalogSkin) =>
+          tierPriceVp(s.tierId ? tierById.get(s.tierId)?.devName : undefined, s.weaponCategory),
+      }),
     });
-  }, [skins.owned, offers.data, agents.data, agentsOwned.data, includeAgents]);
+  }, [
+    skins.owned,
+    offers.data,
+    priceSource,
+    tierById,
+    agents.data,
+    agentsOwned.data,
+    includeAgents,
+  ]);
 
   const currency = currencyConfig();
   const money = result ? vpToMoneyRange(result.totalVp, currency.rate) : null;
@@ -195,9 +223,10 @@ export function useSpending() {
     money,
     currency,
     offerIndex: useMemo(() => (offers.data ? indexOffers(offers.data) : null), [offers.data]),
+    priceSource,
     agentsAvailable: Boolean(agentsOwned.data && agents.data),
     isPending: skins.isPending || offers.isPending,
-    error: skins.error ?? offers.error ?? null,
+    error: skins.error ?? null,
   };
 }
 

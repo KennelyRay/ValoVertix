@@ -5,7 +5,7 @@ import { EstimateTag, ErrorNote, Panel, Switch, Tabs } from "@/components/ui/pri
 import { VP_PRICES } from "@/config/vp-prices";
 import { useSpending } from "@/features/data";
 import { useSettings } from "@/features/settings-store";
-import { EstimateInfo } from "@/features/spending/estimate-notes";
+import { EstimateInfo, TierPriceNote } from "@/features/spending/estimate-notes";
 import { apiColor, fmtInt, fmtMoney, fmtPct, fmtVp } from "@/lib/format";
 
 type BreakdownTab = "tier" | "weapon" | "theme";
@@ -21,6 +21,7 @@ function Spending() {
     isPending,
     error,
     agentsAvailable,
+    priceSource,
   } = useSpending();
   const includeAgents = useSettings((s) => s.includeAgents);
   const setSettings = useSettings((s) => s.set);
@@ -104,14 +105,21 @@ function Spending() {
                 Radianite on upgrades <EstimateTag />
               </span>
             }
-            value={`${fmtInt(spending.radianite)} RP`}
+            value={priceSource === "tier" ? "Not available" : `${fmtInt(spending.radianite)} RP`}
             note={
-              spending.radianiteItems
-                ? `${spending.radianiteItems} owned upgrades with a store price`
-                : "No priced upgrades found"
+              priceSource === "tier"
+                ? "Needs Riot's price list"
+                : spending.radianiteItems
+                  ? `${spending.radianiteItems} owned upgrades with a store price`
+                  : "No priced upgrades found"
             }
           />
         </dl>
+        {priceSource === "tier" && (
+          <div className="mt-4">
+            <TierPriceNote />
+          </div>
+        )}
         <p className="mt-4 text-sm text-muted">Based on standard PH VP pack prices.</p>
         <div className="mt-2 max-w-xl border-t border-line pt-2">
           <Switch

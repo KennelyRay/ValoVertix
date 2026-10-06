@@ -16,6 +16,8 @@ export interface CardData {
   riotId: string | null;
   spending: SpendingResult<CatalogSkin> | null;
   money: MoneyRange | null;
+  /** "tier" when Riot's price list was unavailable and tier prices were used. */
+  priceSource: "offer" | "tier" | null;
   currencyFormat: { locale: string; currency: string };
   totalSkins: number;
   tierById: Map<string, ContentTier>;

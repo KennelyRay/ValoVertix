@@ -14,7 +14,7 @@ import {
   useStatic,
   useWallet,
 } from "@/features/data";
-import { EstimateInfo } from "@/features/spending/estimate-notes";
+import { EstimateInfo, TierPriceNote } from "@/features/spending/estimate-notes";
 import { apiColor, fmtInt, fmtMoney, fmtVp } from "@/lib/format";
 
 function Banner() {
@@ -130,8 +130,18 @@ function Wallet() {
 }
 
 function Dashboard() {
-  const { owned, spending, money, currency, tierById, tiers, catalog, isPending, error } =
-    useSpending();
+  const {
+    owned,
+    spending,
+    money,
+    currency,
+    tierById,
+    tiers,
+    catalog,
+    isPending,
+    error,
+    priceSource,
+  } = useSpending();
 
   const tierCounts = useMemo(
     () => (owned ? countBy(owned, (o) => o.skin.tierId) : new Map()),
@@ -183,8 +193,9 @@ function Dashboard() {
                 />
               </dl>
               <p className="mt-4 text-sm text-muted">
-                {spending.unpriced.length} skins have no store price (battle pass, events,
-                exclusives) and aren't counted.{" "}
+                {priceSource === "tier"
+                  ? `${spending.unpriced.length} battle pass and contract skins aren't counted.`
+                  : `${spending.unpriced.length} skins have no store price (battle pass, events, exclusives) and aren't counted.`}{" "}
                 <Link
                   to="/spending"
                   className="text-text underline underline-offset-4 hover:text-accent"
@@ -192,6 +203,11 @@ function Dashboard() {
                   See the full breakdown
                 </Link>
               </p>
+              {priceSource === "tier" && (
+                <div className="mt-3">
+                  <TierPriceNote compact />
+                </div>
+              )}
             </>
           ) : (
             <p className="mt-3 text-sm text-muted">

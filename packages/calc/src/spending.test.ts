@@ -169,6 +169,27 @@ describe("computeSpending", () => {
     ).toBe(0);
   });
 
+  it("prices skins without an offer from the fallback, but never contract rewards", () => {
+    const r = computeSpending({
+      ownedSkins: owned,
+      offers,
+      currency,
+      fallbackVp: (s) => (s.tierId === "exclusive" ? 2175 : s.isContractReward ? 999 : undefined),
+    });
+    expect(r.priced.map((p) => [p.owned.skin.uuid, p.vp, p.source])).toEqual([
+      ["ex", 2175, "tier"],
+      ["a", 1775, "offer"],
+      ["b", 875, "offer"],
+    ]);
+    expect(r.unpriced.map((u) => [u.owned.skin.uuid, u.reason])).toEqual([["bp", "contract"]]);
+    expect(r.skinVp).toBe(2650 + 2175);
+  });
+
+  it("ignores zero or missing fallback prices", () => {
+    const r = computeSpending({ ownedSkins: owned, offers, currency, fallbackVp: () => 0 });
+    expect(r.priced).toHaveLength(2);
+  });
+
   it("handles an empty inventory", () => {
     const r = computeSpending({ ownedSkins: [], offers, currency });
     expect(r.totalVp).toBe(0);

@@ -283,7 +283,11 @@ export function StatusBanners() {
   }
 
   const unexplained = health.failures.filter(
-    (f) => !EXPLAINED.has(f.kind) && !(health.coreNotFound && CORE_ENDPOINTS.has(f.endpoint)),
+    (f) =>
+      !EXPLAINED.has(f.kind) &&
+      !(health.coreNotFound && CORE_ENDPOINTS.has(f.endpoint)) &&
+      // A missing price list is explained where prices appear (tier-price note).
+      f.endpoint !== "store.offers",
   );
   if (session && unexplained.length > 0) {
     banners.push(

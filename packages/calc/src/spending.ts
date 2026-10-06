@@ -7,9 +7,13 @@ export interface CurrencyIds {
   radianite: string;
 }
 
+export type PriceSource = "offer" | "tier";
+
 export interface PricedSkin<S extends SkinRef = SkinRef> {
   owned: OwnedSkin<S>;
   vp: number;
+  /** "offer": Riot's store price. "tier": the standard price for its tier (fallback). */
+  source: PriceSource;
 }
 
 export type UnpricedReason = "contract" | "no_offer";
@@ -32,6 +36,11 @@ export interface SpendingInput<S extends SkinRef> {
   includeAgents?: boolean;
   /** Owned agent IDs that are not free starter agents. */
   paidAgentIds?: readonly string[];
+  /**
+   * Used when a skin has no store offer, e.g. when Riot's price list is
+   * unavailable. Contract rewards are never priced this way.
+   */
+  fallbackVp?: (skin: S) => number | undefined;
 }
 
 export interface SpendingResult<S extends SkinRef = SkinRef> {
@@ -98,7 +107,10 @@ export function computeSpending<S extends SkinRef>(input: SpendingInput<S>): Spe
   for (const owned of ownedSkins) {
     const baseId = owned.skin.levels[0]?.uuid.toLowerCase();
     const vp = baseId ? offers.get(baseId)?.[currency.vp] : undefined;
-    if (vp !== undefined && vp > 0) priced.push({ owned, vp });
+    const fallback = owned.skin.isContractReward ? undefined : input.fallbackVp?.(owned.skin);
+    if (vp !== undefined && vp > 0) priced.push({ owned, vp, source: "offer" });
+    else if (fallback !== undefined && fallback > 0)
+      priced.push({ owned, vp: fallback, source: "tier" });
     else unpriced.push({ owned, reason: owned.skin.isContractReward ? "contract" : "no_offer" });
 
     const r = radianiteForSkin(owned, offers, currency.radianite);
