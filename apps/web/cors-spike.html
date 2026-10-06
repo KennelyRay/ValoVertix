@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
+    <title>ValoVertix CORS spike (dev only)</title>
+  </head>
+  <body
+    style="
+      background: #0e1117;
+      color: #ece8e1;
+      font: 14px system-ui;
+      padding: 24px;
+      max-width: 900px;
+    "
+  >
+    <h1>Phase 0: CORS spike</h1>
+    <p>
+      Dev-only page (not part of the production build). Paste a fresh access URL to call every Riot
+      endpoint from this browser and record which ones CORS allows. Results stay on this page.
+    </p>
+    <form id="form">
+      <label for="url">Access URL</label><br />
+      <textarea
+        id="url"
+        rows="3"
+        style="width: 100%"
+        autocomplete="off"
+        spellcheck="false"
+      ></textarea
+      ><br />
+      <label for="shard">Shard</label>
+      <select id="shard">
+        <option>ap</option>
+        <option>na</option>
+        <option>eu</option>
+        <option>kr</option>
+      </select>
+      <button type="submit">Run</button>
+    </form>
+    <pre id="out" style="white-space: pre-wrap"></pre>
+    <script type="module" src="/src/spike/cors-spike.ts"></script>
+  </body>
+</html>

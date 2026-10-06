@@ -1,0 +1,6 @@
+pnpm-lock.yaml
+dist
+coverage
+apps/web/public/mockServiceWorker.js
+apps/web/src/mocks/fixtures/**/*.json
+apps/web/src/config/vp-prices.ts

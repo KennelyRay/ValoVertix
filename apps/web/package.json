@@ -1,0 +1,55 @@
+{
+  "name": "@valovertix/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 4173",
+    "typecheck": "tsc --noEmit",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "5.3.0",
+    "@fontsource/rajdhani": "5.3.0",
+    "@tanstack/react-query": "5.104.1",
+    "@tanstack/react-router": "1.170.41",
+    "@tanstack/react-virtual": "3.14.13",
+    "@valovertix/assets": "workspace:*",
+    "@valovertix/calc": "workspace:*",
+    "@valovertix/riot": "workspace:*",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "framer-motion": "12.43.0",
+    "html-to-image": "1.11.13",
+    "idb-keyval": "6.3.0",
+    "lucide-react": "0.577.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "recharts": "3.10.1",
+    "tailwind-merge": "3.7.0",
+    "zod": "4.6.5",
+    "zustand": "5.0.15"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@tailwindcss/vite": "4.3.3",
+    "@testing-library/jest-dom": "6.10.0",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.7",
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
+    "@vitejs/plugin-react": "5.2.0",
+    "fake-indexeddb": "6.2.5",
+    "jsdom": "26.1.0",
+    "msw": "2.15.0",
+    "tailwindcss": "4.3.3",
+    "vite": "7.3.6"
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
+  }
+}

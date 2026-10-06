@@ -1,0 +1,150 @@
+@import "tailwindcss";
+
+/*
+ * Design decisions (antislop R-31):
+ * - Dark base: requested in the brief and matches the in-game UI players compare against.
+ * - One red accent: primary actions and the active nav marker only.
+ * - Rajdhani for headings and numbers: squared, condensed figures read like an in-game HUD.
+ * - Inter for body text: legible at small sizes in dense tables and notes.
+ * - Clipped top-right corner on panels: the one repeated identity motif.
+ * Contrast (vs --color-bg): text 15.5, muted 8.2, faint 5.1, accent 5.8.
+ */
+@theme {
+  --color-bg: #0e1117;
+  --color-surface: #161b22;
+  --color-raised: #1d232c;
+  --color-line: #2b323d;
+  --color-line-strong: #4a5260;
+  --color-text: #ece8e1;
+  --color-muted: #a4abb6;
+  --color-faint: #7d8591;
+  --color-accent: #ff4d5e;
+  --color-accent-ink: #0e1117;
+  --color-win: #5fd3a0;
+  --color-loss: #ff7a85;
+  --color-warn: #e7c46a;
+
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Rajdhani", "Inter Variable", ui-sans-serif, sans-serif;
+
+  --clip-corner: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
+  --clip-corner-sm: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-feature-settings:
+      "tnum" 1,
+      "cv11" 1;
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    line-height: 1.1;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-text);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--color-accent) 45%, transparent);
+  }
+  dialog::backdrop {
+    background: rgb(5 7 10 / 0.7);
+  }
+}
+
+@utility clip-corner {
+  clip-path: var(--clip-corner);
+}
+@utility clip-corner-sm {
+  clip-path: var(--clip-corner-sm);
+}
+@utility font-display {
+  font-family: var(--font-display);
+}
+
+/*
+ * Panels draw their clipped shape on pseudo-elements, not on the element,
+ * so popovers inside and focus outlines on the panel are never clipped.
+ * ::before is the 1px edge (including the diagonal), ::after the fill.
+ */
+.panel {
+  position: relative;
+  isolation: isolate;
+}
+.panel::before,
+.panel::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+}
+.panel::before {
+  inset: 0;
+  background: var(--panel-edge, var(--color-line));
+  clip-path: var(--clip-corner);
+}
+.panel::after {
+  inset: 1px;
+  background: var(--panel-fill, var(--color-surface));
+  clip-path: polygon(0 0, calc(100% - 13.6px) 0, 100% 13.6px, 100% 100%, 0 100%);
+}
+.panel-raised {
+  --panel-fill: var(--color-raised);
+}
+.panel-interactive:hover {
+  --panel-edge: var(--color-line-strong);
+}
+.panel-active {
+  --panel-edge: var(--color-accent);
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface) 0%,
+    var(--color-raised) 50%,
+    var(--color-surface) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+html[data-motion="reduce"] *,
+html[data-motion="reduce"] *::before,
+html[data-motion="reduce"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}

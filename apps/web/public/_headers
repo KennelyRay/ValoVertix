@@ -1,0 +1,18 @@
+# Cloudflare Pages response headers.
+# connect-src lists exactly the hosts in packages/riot/src/endpoints.ts
+# (RIOT_CONNECT_HOSTS) plus valorant-api.com; see docs/cors-findings.md.
+# media.valorant-api.com is in connect-src because the share card export
+# fetches images to inline them. No analytics endpoint: none is used.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https://media.valorant-api.com; media-src https://valorant.dyn.riotcdn.net; font-src 'self'; connect-src 'self' https://valorant-api.com https://media.valorant-api.com https://auth.riotgames.com https://entitlements.auth.riotgames.com https://riot-geo.pas.si.riotgames.com https://pd.na.a.pvp.net https://pd.eu.a.pvp.net https://pd.ap.a.pvp.net https://pd.kr.a.pvp.net; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
+  Referrer-Policy: no-referrer
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/mockServiceWorker.js
+  Cache-Control: no-cache

@@ -1,0 +1,22 @@
+{
+  "name": "@valovertix/assets",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@valovertix/calc": "workspace:*",
+    "@valovertix/riot": "workspace:*",
+    "idb-keyval": "6.3.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "6.2.5"
+  }
+}

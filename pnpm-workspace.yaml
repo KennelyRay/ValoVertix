@@ -1,0 +1,12 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Pin exact versions when adding dependencies.
+savePrefix: ""
+
+# Only esbuild may run install scripts. The MSW worker is committed in
+# apps/web/public instead of being copied by msw's postinstall.
+allowBuilds:
+  esbuild: true
+  msw: false
