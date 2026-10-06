@@ -8,7 +8,13 @@ import {
   resolveOwned,
   upgradeLabel,
 } from "./catalog";
-import { StaticDataError, deleteAssetCache, fetchGameVersion, loadStatic } from "./client";
+import {
+  StaticDataError,
+  deleteAssetCache,
+  enableAssetCache,
+  fetchGameVersion,
+  loadStatic,
+} from "./client";
 import type { Agent, Contract, Weapon } from "./schemas";
 
 const json = (body: unknown, status = 200) =>
@@ -19,6 +25,7 @@ const themes = { status: 200, data: [{ uuid: "t1", displayName: "Reaver", extra:
 describe("loadStatic", () => {
   it("fetches once per version and serves the cache afterwards", async () => {
     await deleteAssetCache();
+    enableAssetCache();
     const f = json(themes);
     const first = await loadStatic("themes", "v1", { fetch: f });
     expect(first).toEqual([{ uuid: "t1", displayName: "Reaver" }]);
@@ -29,6 +36,7 @@ describe("loadStatic", () => {
 
   it("refetches on a new version and drops the old entry", async () => {
     await deleteAssetCache();
+    enableAssetCache();
     const f = json(themes);
     await loadStatic("themes", "v1", { fetch: f });
     await loadStatic("themes", "v2", { fetch: f });
@@ -38,6 +46,7 @@ describe("loadStatic", () => {
 
   it("raises typed errors", async () => {
     await deleteAssetCache();
+    enableAssetCache();
     vi.spyOn(console, "warn").mockImplementation(() => {});
     await expect(loadStatic("themes", "x", { fetch: json({}, 500) })).rejects.toBeInstanceOf(
       StaticDataError,
@@ -51,6 +60,16 @@ describe("loadStatic", () => {
     await expect(loadStatic("themes", "x", { fetch: offline })).rejects.toMatchObject({
       reason: "network",
     });
+  });
+
+  it("stops caching after the cache is deleted", async () => {
+    await deleteAssetCache();
+    const f = json(themes);
+    await loadStatic("themes", "v1", { fetch: f });
+    await loadStatic("themes", "v1", { fetch: f });
+    expect(f).toHaveBeenCalledTimes(2);
+    expect((await indexedDB.databases()).map((d) => d.name)).not.toContain("valovertix-assets");
+    enableAssetCache();
   });
 
   it("reads the game version", async () => {

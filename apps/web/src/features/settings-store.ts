@@ -8,6 +8,8 @@ interface SettingsState {
   hideFreeSkins: boolean;
   includeAgents: boolean;
   motion: MotionPreference;
+  /** Bundle or map art behind the page. The grid always shows. */
+  backdropArt: boolean;
   currency: CurrencyCode;
   showRiotIdOnShare: boolean;
   set: (patch: Partial<Omit<SettingsState, "set">>) => void;
@@ -20,6 +22,7 @@ export const useSettings = create<SettingsState>()(
       hideFreeSkins: true,
       includeAgents: false,
       motion: "system",
+      backdropArt: true,
       currency: "PHP",
       showRiotIdOnShare: false,
       set: (patch) => set(patch),

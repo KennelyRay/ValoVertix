@@ -6,6 +6,7 @@ import { useActiveSession } from "@/features/auth/session-store";
 import { useExpiryWatcher } from "@/features/auth/actions";
 import { useSettings } from "@/features/settings-store";
 import { cn } from "@/lib/cn";
+import { Backdrop } from "./backdrop";
 import { StatusBanners } from "./status-banners";
 import { Toaster } from "./toast";
 
@@ -55,7 +56,7 @@ function Header() {
   useEffect(() => setOpen(false), [pathname]);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-bg/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-40 border-b border-line bg-bg/95">
       <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-1">
         <Link
           to="/"
@@ -129,6 +130,7 @@ export function AppShell() {
 
   return (
     <div className="flex min-h-dvh flex-col">
+      <Backdrop />
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-50 focus:bg-raised focus:px-4 focus:py-2"

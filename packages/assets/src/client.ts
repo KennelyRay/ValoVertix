@@ -16,6 +16,8 @@ export const ASSET_DB_NAME = "valovertix-assets";
 const CACHE_FORMAT = 1;
 
 let store: UseStore | null = null;
+/** Off after "Clear all data" until the next page load, so nothing is written back. */
+let cacheEnabled = true;
 const getStore = () => (store ??= createStore(ASSET_DB_NAME, "static"));
 
 export class StaticDataError extends Error {
@@ -75,13 +77,16 @@ export async function loadStatic<K extends StaticKey>(
   opts: { fetch?: typeof fetch; signal?: AbortSignal } = {},
 ): Promise<StaticData<K>> {
   const k = cacheKey(version, key);
-  const cached = await get<StaticData<K>>(k, getStore()).catch(() => undefined);
+  const cached = cacheEnabled
+    ? await get<StaticData<K>>(k, getStore()).catch(() => undefined)
+    : undefined;
   if (cached) return cached;
 
   const resource = STATIC_RESOURCES[key];
   const body = await getJson(key, resource.path, resource.schema, opts.fetch ?? fetch, opts.signal);
   const data = body.data as StaticData<K>;
 
+  if (!cacheEnabled) return data;
   try {
     await set(k, data, getStore());
     const stale = (await keys(getStore())).filter(
@@ -94,8 +99,12 @@ export async function loadStatic<K extends StaticKey>(
   return data;
 }
 
-/** Deletes the whole asset database (used by "Clear all data"). */
+/**
+ * Deletes the whole asset database (used by "Clear all data") and stops
+ * caching until the page reloads, so the cleared state stays clean.
+ */
 export async function deleteAssetCache(): Promise<void> {
+  cacheEnabled = false;
   // idb-keyval keeps its connection open, which would block the delete.
   if (store) await store("readonly", (s) => s.transaction.db.close()).catch(() => {});
   store = null;
@@ -103,4 +112,9 @@ export async function deleteAssetCache(): Promise<void> {
     const req = indexedDB.deleteDatabase(ASSET_DB_NAME);
     req.onsuccess = req.onerror = req.onblocked = () => resolve();
   });
+}
+
+/** Re-enables caching after deleteAssetCache (tests; a page reload does this in the app). */
+export function enableAssetCache() {
+  cacheEnabled = true;
 }

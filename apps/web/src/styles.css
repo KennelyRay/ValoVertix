@@ -111,6 +111,75 @@
   --panel-edge: var(--color-accent);
 }
 
+/*
+ * Animated page background (owner request: the in-game store/lobby look).
+ * R-07: the grid is an explicit owner request, evoking the game's HUD.
+ * R-19: motion is slow and decorative; reduced-motion settings freeze it.
+ * Contrast: art is dimmed to 60% brightness under a scrim of at least 75%
+ * page color. Worst case (a white pixel under a grid line) leaves muted text
+ * at 4.78:1 and body text at 9:1. Faint text only appears inside opaque
+ * inputs and panels, never directly on this background.
+ */
+.backdrop-art {
+  position: absolute;
+  inset: -4%;
+  width: 108%;
+  max-width: none; /* Tailwind caps images at 100%, which would leave a gap on the right. */
+  height: 108%;
+  object-fit: cover;
+  filter: brightness(0.6) saturate(1.15);
+  animation: backdrop-drift 60s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.backdrop-art-in {
+  animation:
+    backdrop-drift 60s ease-in-out infinite alternate,
+    backdrop-fade 2.5s ease-out;
+}
+.backdrop-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgb(14 17 23 / 0.9),
+    rgb(14 17 23 / 0.75) 25%,
+    rgb(14 17 23 / 0.75) 65%,
+    rgb(14 17 23 / 0.95)
+  );
+}
+.backdrop-grid {
+  position: absolute;
+  inset: -64px;
+  background-image:
+    linear-gradient(to right, rgb(236 232 225 / 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(236 232 225 / 0.05) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse at 50% 30%, black 15%, transparent 75%);
+  animation: backdrop-grid 24s linear infinite;
+  will-change: transform;
+}
+@keyframes backdrop-drift {
+  from {
+    transform: scale(1.02) translate3d(-1%, -1%, 0);
+  }
+  to {
+    transform: scale(1.12) translate3d(1.5%, 1%, 0);
+  }
+}
+@keyframes backdrop-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes backdrop-grid {
+  to {
+    transform: translate3d(64px, 64px, 0);
+  }
+}
+
 .skeleton {
   background: linear-gradient(
     90deg,

@@ -99,6 +99,12 @@ function Preferences() {
           description="Battle pass, contract and other no-tier rewards."
         />
         <Switch
+          checked={s.backdropArt}
+          onChange={(v) => s.set({ backdropArt: v })}
+          label="Background art"
+          description="Your featured bundle (or map art when signed out) behind the page. Turn off to save data."
+        />
+        <Switch
           checked={s.motion === "reduce"}
           onChange={(v) => s.set({ motion: v ? "reduce" : "system" })}
           label="Reduce motion"

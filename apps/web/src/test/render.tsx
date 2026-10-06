@@ -32,6 +32,7 @@ export function resetApp() {
     hideFreeSkins: true,
     includeAgents: false,
     motion: "system",
+    backdropArt: true,
     showRiotIdOnShare: false,
   });
 }
