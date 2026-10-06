@@ -27,7 +27,13 @@ import {
   type PriceSource,
 } from "@valovertix/calc";
 import type { CatalogSkin } from "@valovertix/assets";
-import { CURRENCY, createRiotClient, type ItemTypeKey, type RiotClient } from "@valovertix/riot";
+import {
+  CURRENCY,
+  createRiotClient,
+  storefrontPrices,
+  type ItemTypeKey,
+  type RiotClient,
+} from "@valovertix/riot";
 import { MATCH_DETAILS_PAGE } from "@/config/app";
 import { tierPriceVp } from "@/config/tier-prices";
 import { DEFAULT_CURRENCY, VP_PRICES, vpRate } from "@/config/vp-prices";
@@ -203,7 +209,7 @@ export function useSpending() {
   const storefront = useStorefront(offers.isError);
   const priceSource: PriceSource | null = offers.data ? "offer" : offers.isError ? "tier" : null;
   const priceList = useMemo(
-    () => offers.data ?? storefront.data ?? [],
+    () => offers.data ?? (storefront.data ? storefrontPrices(storefront.data) : []),
     [offers.data, storefront.data],
   );
 

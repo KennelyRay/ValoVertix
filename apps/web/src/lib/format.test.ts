@@ -1,4 +1,4 @@
-import { apiColor, fmtCountdown, fmtPct, fmtVp, queueName, titleCase } from "./format";
+import { apiColor, fmtCountdown, fmtTimeLeft, fmtPct, fmtVp, queueName, titleCase } from "./format";
 
 describe("formatters", () => {
   it("formats the expiry countdown", () => {
@@ -7,6 +7,13 @@ describe("formatters", () => {
     expect(fmtCountdown(65_000)).toBe("01:05");
     expect(fmtCountdown(59 * 60_000 + 59_000)).toBe("59:59");
     expect(fmtCountdown(3_600_000 + 61_000)).toBe("1:01:01");
+  });
+
+  it("formats store time left", () => {
+    expect(fmtTimeLeft(0)).toBe("refreshing");
+    expect(fmtTimeLeft(4 * 86_400_000 + 3_600_000 + 5_000)).toBe("4d 1h");
+    expect(fmtTimeLeft(9 * 3_600_000 + 20 * 60_000)).toBe("9h 20m");
+    expect(fmtTimeLeft(12 * 60_000 + 5_000)).toBe("12:05");
   });
 
   it("formats numbers and names", () => {

@@ -60,3 +60,15 @@ const QUEUE_NAMES: Record<string, string> = {
   "": "Custom",
 };
 export const queueName = (id: string) => QUEUE_NAMES[id] ?? titleCase(id);
+
+/** Time left in a store rotation: "4d 1h", "9h 20m" or "12:05". */
+export function fmtTimeLeft(ms: number): string {
+  if (ms <= 0) return "refreshing";
+  const totalMinutes = Math.floor(ms / 60_000);
+  const d = Math.floor(totalMinutes / 1440);
+  const h = Math.floor((totalMinutes % 1440) / 60);
+  const m = totalMinutes % 60;
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return fmtCountdown(ms);
+}

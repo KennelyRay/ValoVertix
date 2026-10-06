@@ -60,6 +60,15 @@ const contentTier = z.object({
 
 const theme = z.object({ uuid: z.string(), displayName: z.string() });
 
+const bundle = z.object({
+  uuid: z.string(),
+  displayName: z.string(),
+  displayNameSubText: z.string().nullable(),
+  displayIcon: url,
+  displayIcon2: url,
+  verticalPromoImage: url,
+});
+
 const buddy = z.object({
   uuid: z.string(),
   displayName: z.string(),
@@ -143,6 +152,7 @@ export const STATIC_RESOURCES = {
   weapons: { path: "/v1/weapons", schema: envelope(lenientArray(weapon, "static.weapons")) },
   contentTiers: { path: "/v1/contenttiers", schema: envelope(z.array(contentTier)) },
   themes: { path: "/v1/themes", schema: envelope(lenientArray(theme, "static.themes")) },
+  bundles: { path: "/v1/bundles", schema: envelope(lenientArray(bundle, "static.bundles")) },
   buddies: { path: "/v1/buddies", schema: envelope(lenientArray(buddy, "static.buddies")) },
   playerCards: {
     path: "/v1/playercards",
@@ -172,6 +182,7 @@ export type Weapon = StaticData<"weapons">[number];
 export type ApiSkin = Weapon["skins"][number];
 export type ContentTier = StaticData<"contentTiers">[number];
 export type Theme = StaticData<"themes">[number];
+export type Bundle = StaticData<"bundles">[number];
 export type Buddy = StaticData<"buddies">[number];
 export type PlayerCard = StaticData<"playerCards">[number];
 export type Spray = StaticData<"sprays">[number];

@@ -3,6 +3,7 @@ import { createRiotClient, fetchEntitlementsToken, fetchRegion, fetchUserInfo } 
 import { onSchemaDrift } from "./drift";
 import { CLIENT_PLATFORM, ITEM_TYPE, PD_PATHS } from "./endpoints";
 import { RiotApiError, parseRetryAfter } from "./errors";
+import { storefrontPrices } from "./schemas";
 import { regionToShard } from "./shard";
 
 const PUUID = "11111111-2222-3333-4444-555555555555";
@@ -234,6 +235,8 @@ describe("storefront", () => {
         Bundle: {},
         Bundles: [
           {
+            ID: "bundle-1",
+            DataAssetID: "ASSET-1",
             Items: [
               {
                 Item: { ItemTypeID: T, ItemID: "b1", Amount: 1 },
@@ -252,7 +255,15 @@ describe("storefront", () => {
         ],
       },
     });
-    const offers = await createRiotClient(session, f).storefront();
+    const sf = await createRiotClient(session, f).storefront();
+    expect(sf.daily.offers).toHaveLength(1);
+    expect(sf.bundles[0]?.items[0]).toMatchObject({
+      itemId: "b1",
+      basePrice: 1775,
+      discountedPrice: 1500,
+    });
+    expect(sf.nightMarket?.offers[0]).toMatchObject({ discountPercent: 0, isSeen: false });
+    const offers = storefrontPrices(sf);
     expect(offers.map((o) => [o.Rewards[0]?.ItemID, o.Cost[VPID]])).toEqual([
       ["d1", 875],
       ["n1", 2175],
@@ -265,10 +276,12 @@ describe("storefront", () => {
   });
 
   it("copes with a storefront missing sections", async () => {
-    const offers = await createRiotClient(
-      session,
-      mockFetch({ SkinsPanelLayout: null }),
-    ).storefront();
-    expect(offers).toEqual([]);
+    const sf = await createRiotClient(session, mockFetch({ SkinsPanelLayout: null })).storefront();
+    expect(sf).toEqual({
+      daily: { offers: [], remainingSeconds: null },
+      bundles: [],
+      nightMarket: null,
+    });
+    expect(storefrontPrices(sf)).toEqual([]);
   });
 });

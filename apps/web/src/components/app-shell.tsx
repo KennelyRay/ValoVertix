@@ -11,6 +11,7 @@ import { Toaster } from "./toast";
 
 const APP_LINKS = [
   { to: "/dashboard", label: "Dashboard" },
+  { to: "/store", label: "Store" },
   { to: "/spending", label: "Spending" },
   { to: "/stats", label: "Stats" },
   { to: "/collection", label: "Collection" },

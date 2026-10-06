@@ -18,6 +18,7 @@ const STATIC: Record<string, unknown> = {
   "/v1/weapons": staticData.weapons,
   "/v1/contenttiers": staticData.contentTiers,
   "/v1/themes": staticData.themes,
+  "/v1/bundles": staticData.bundles,
   "/v1/buddies": staticData.buddies,
   "/v1/playercards": staticData.playerCards,
   "/v1/sprays": staticData.sprays,
@@ -51,6 +52,7 @@ function pdBody(path: string): unknown {
     return { ItemTypeID: type, Entitlements: ids.map((ItemID) => ({ TypeID: type, ItemID })) };
   }
   if (path === "/store/v1/offers/") return riot.offers;
+  if (path.startsWith("/store/v3/storefront/")) return riot.storefront;
   if (path.startsWith("/store/v1/wallet/")) return riot.wallet;
   if (path.endsWith("/playerloadout")) return riot.loadout;
   if (path.startsWith("/account-xp/")) return riot.accountXp;

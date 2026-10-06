@@ -47,6 +47,7 @@ const page = (path: string, load: () => Promise<{ default: React.ComponentType }
 const routeTree = rootRoute.addChildren([
   createRoute({ getParentRoute: () => rootRoute, path: "/", component: Landing }),
   page("/dashboard", () => import("@/routes/dashboard")),
+  page("/store", () => import("@/routes/store")),
   page("/collection", () => import("@/routes/collection")),
   page("/spending", () => import("@/routes/spending")),
   page("/stats", () => import("@/routes/stats")),
