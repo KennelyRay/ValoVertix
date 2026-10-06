@@ -74,26 +74,30 @@ describe("token handling", () => {
     expect(headers).toContain("X-Content-Type-Options: nosniff");
   });
 
-  it("vercel.json sends the same security headers as _headers", () => {
-    const vercel = JSON.parse(readFileSync(join(__dirname, "../../../../vercel.json"), "utf8")) as {
-      headers: { source: string; headers: { key: string; value: string }[] }[];
-    };
-    const fromVercel = Object.fromEntries(
-      vercel.headers.find((h) => h.source === "/(.*)")!.headers.map((h) => [h.key, h.value]),
-    );
-    const lines = readFileSync(join(__dirname, "../../public/_headers"), "utf8").split(/\r?\n/);
-    const fromPages: Record<string, string> = {};
-    let inBlock = false;
-    for (const line of lines) {
-      if (/^\S/.test(line)) {
-        inBlock = line.trim() === "/*";
-        continue;
+  // Both Vercel configs (Root Directory = repo root or apps/web) must match _headers.
+  it.each(["../../../../vercel.json", "../../vercel.json"])(
+    "%s sends the same security headers as _headers",
+    (file) => {
+      const vercel = JSON.parse(readFileSync(join(__dirname, file), "utf8")) as {
+        headers: { source: string; headers: { key: string; value: string }[] }[];
+      };
+      const fromVercel = Object.fromEntries(
+        vercel.headers.find((h) => h.source === "/(.*)")!.headers.map((h) => [h.key, h.value]),
+      );
+      const lines = readFileSync(join(__dirname, "../../public/_headers"), "utf8").split(/\r?\n/);
+      const fromPages: Record<string, string> = {};
+      let inBlock = false;
+      for (const line of lines) {
+        if (/^\S/.test(line)) {
+          inBlock = line.trim() === "/*";
+          continue;
+        }
+        const m = inBlock ? /^\s+([\w-]+):\s*(.+)$/.exec(line) : null;
+        if (m) fromPages[m[1]!] = m[2]!;
       }
-      const m = inBlock ? /^\s+([\w-]+):\s*(.+)$/.exec(line) : null;
-      if (m) fromPages[m[1]!] = m[2]!;
-    }
-    expect(fromVercel).toEqual(fromPages);
-  });
+      expect(fromVercel).toEqual(fromPages);
+    },
+  );
 });
 
 describe("clear all data", () => {

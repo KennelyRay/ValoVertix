@@ -122,8 +122,9 @@ boot finishes, so a restored demo session can't reach Riot before the worker is 
 (pinned pnpm 11 via `npx`), the output directory `apps/web/dist`, the SPA rewrite to
 `index.html`, and the security headers (CSP, `Referrer-Policy`, `nosniff`, frame blocking).
 
-1. Import the repo in Vercel. Keep **Root Directory** as the repo root; `vercel.json` sets the
-   rest, so leave the build settings on their defaults.
+1. Import the repo in Vercel. **Root Directory** can be the repo root or `apps/web`: each has its
+   own `vercel.json` (`/vercel.json` and `apps/web/vercel.json`) with the right install, build and
+   output paths. Leave the build settings on their defaults so `vercel.json` controls them.
 2. Node.js version: 22.x or newer (Project Settings → Build and Deployment).
 3. Optional environment variable `VITE_OFFICIAL_DOMAIN`, e.g. `valovertix.app`, if you use a
    custom domain. Without it, the build uses Vercel's production domain
@@ -134,7 +135,7 @@ boot finishes, so a restored demo session can't reach Riot before the worker is 
 Static files win over the rewrite on Vercel, so `/assets/*` and `/mockServiceWorker.js` are
 served as files and every other path gets the app.
 
-**Keep the headers in sync.** The CSP exists twice: `vercel.json` (Vercel) and
+**Keep the headers in sync.** The CSP exists in three files: both `vercel.json` files and
 `apps/web/public/_headers` (Cloudflare Pages and `pnpm preview`). A test fails if they differ.
 
 ### Cloudflare Pages (alternative)
