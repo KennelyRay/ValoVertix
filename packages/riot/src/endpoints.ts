@@ -57,7 +57,9 @@ export const PD_PATHS = {
   /** POST with body {}. Daily shop, featured bundles and Night Market, with prices. */
   storefront: (puuid: string) => `/store/v3/storefront/${seg(puuid)}`,
   wallet: (puuid: string) => `/store/v1/wallet/${seg(puuid)}`,
-  loadout: (puuid: string) => `/personalization/v2/players/${seg(puuid)}/playerloadout`,
+  /** v3 since 2026 (v2 returns 404 for some accounts); v2 kept as a fallback. */
+  loadout: (puuid: string) => `/personalization/v3/players/${seg(puuid)}/playerloadout`,
+  loadoutV2: (puuid: string) => `/personalization/v2/players/${seg(puuid)}/playerloadout`,
   accountXp: (puuid: string) => `/account-xp/v1/players/${seg(puuid)}`,
   mmr: (puuid: string) => `/mmr/v1/players/${seg(puuid)}`,
   competitiveUpdates: (puuid: string, start = 0, end = 20) =>

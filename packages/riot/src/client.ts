@@ -151,9 +151,15 @@ export function createRiotClient(session: RiotSession, f?: FetchLike) {
     wallet: (signal?: AbortSignal) =>
       pd("store.wallet", PD_PATHS.wallet(puuid), walletSchema, { signal }).then((r) => r.Balances),
     loadout: (signal?: AbortSignal) =>
-      pd("player.loadout", PD_PATHS.loadout(puuid), loadoutSchema, { signal }).then(
-        (r) => r.Identity,
-      ),
+      pd("player.loadout", PD_PATHS.loadout(puuid), loadoutSchema, { signal })
+        .catch((err: unknown) => {
+          // Older shards may still only serve v2.
+          if (err instanceof RiotApiError && err.kind === "not_found") {
+            return pd("player.loadout", PD_PATHS.loadoutV2(puuid), loadoutSchema, { signal });
+          }
+          throw err;
+        })
+        .then((r) => r.Identity),
     accountXp: (signal?: AbortSignal) =>
       pd("player.xp", PD_PATHS.accountXp(puuid), accountXpSchema, { signal }).then(
         (r) => r.Progress,

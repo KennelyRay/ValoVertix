@@ -22,6 +22,7 @@ const STATIC_PATHS: Record<string, unknown> = {
   "/v1/agents": staticData.agents,
   "/v1/competitivetiers": staticData.competitiveTiers,
   "/v1/maps": staticData.maps,
+  "/v1/seasons/competitive": staticData.competitiveSeasons,
   "/v1/currencies": staticData.currencies,
   "/v1/contracts": staticData.contracts,
 };
@@ -85,6 +86,7 @@ export function createHandlers({ latency = 0 }: HandlerOptions = {}): HttpHandle
     })),
     pd("/store/v1/offers/", () => riot.offers),
     pd("/store/v1/wallet/:puuid", () => riot.wallet),
+    pd("/personalization/v3/players/:puuid/playerloadout", () => riot.loadout),
     pd("/personalization/v2/players/:puuid/playerloadout", () => riot.loadout),
     pd("/account-xp/v1/players/:puuid", () => riot.accountXp),
     pd("/mmr/v1/players/:puuid", () => riot.mmr),
@@ -114,7 +116,7 @@ export function createHandlers({ latency = 0 }: HandlerOptions = {}): HttpHandle
         ? HttpResponse.json({ status: 200, data: skin })
         : HttpResponse.json({ status: 404 }, { status: 404 });
     }),
-    http.get("https://valorant-api.com/v1/:resource", ({ request }) => {
+    http.get("https://valorant-api.com/v1/*", ({ request }) => {
       const data = STATIC_PATHS[new URL(request.url).pathname];
       return data === undefined
         ? HttpResponse.json({ status: 404 }, { status: 404 })

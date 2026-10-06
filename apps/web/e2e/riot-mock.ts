@@ -27,6 +27,7 @@ const STATIC: Record<string, unknown> = {
   "/v1/agents": staticData.agents,
   "/v1/competitivetiers": staticData.competitiveTiers,
   "/v1/maps": staticData.maps,
+  "/v1/seasons/competitive": staticData.competitiveSeasons,
   "/v1/currencies": staticData.currencies,
   "/v1/contracts": staticData.contracts,
 };

@@ -129,6 +129,13 @@ const competitiveTierSet = z.object({
   ),
 });
 
+/** Competitive acts: which tier table each act used (they changed in 2022). */
+const competitiveSeason = z.object({
+  seasonUuid: z.string(),
+  competitiveTiersUuid: z.string(),
+  startTime: z.string().nullable(),
+});
+
 const map = z.object({
   uuid: z.string(),
   displayName: z.string(),
@@ -176,6 +183,10 @@ export const STATIC_RESOURCES = {
     schema: envelope(lenientArray(agent, "static.agents")),
   },
   competitiveTiers: { path: "/v1/competitivetiers", schema: envelope(z.array(competitiveTierSet)) },
+  competitiveSeasons: {
+    path: "/v1/seasons/competitive",
+    schema: envelope(lenientArray(competitiveSeason, "static.competitiveSeasons")),
+  },
   maps: { path: "/v1/maps", schema: envelope(lenientArray(map, "static.maps")) },
   currencies: { path: "/v1/currencies", schema: envelope(z.array(currency)) },
   contracts: {
@@ -203,6 +214,7 @@ export type Agent = StaticData<"agents">[number];
 export type CompetitiveTierSet = StaticData<"competitiveTiers">[number];
 export type CompetitiveTier = CompetitiveTierSet["tiers"][number];
 export type GameMap = StaticData<"maps">[number];
+export type CompetitiveSeason = StaticData<"competitiveSeasons">[number];
 export type Currency = StaticData<"currencies">[number];
 export type Contract = StaticData<"contracts">[number];
 export type GameVersion = z.output<typeof versionSchema>;

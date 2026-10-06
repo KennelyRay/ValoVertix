@@ -61,6 +61,28 @@ describe("ranks", () => {
     expect(peakRank(winsOnly)).toEqual({ tier: 18, seasonId: "a" });
   });
 
+  it("compares peaks across acts on the current tier scale", () => {
+    // s1 is an old act where 23 meant Immortal 3 (26 today); s2 reached 24 (Immortal 1 today).
+    const mixed = {
+      QueueSkills: {
+        competitive: {
+          SeasonalInfoBySeasonID: {
+            s1: { SeasonID: "s1", CompetitiveTier: 23, RankedRating: 0, WinsByTier: null },
+            s2: { SeasonID: "s2", CompetitiveTier: 24, RankedRating: 0, WinsByTier: null },
+          },
+        },
+      },
+    };
+    const normalize = (season: string, tier: number) =>
+      season === "s1" && tier === 23 ? 26 : tier;
+    expect(peakRank(mixed)).toEqual({ tier: 24, seasonId: "s2" });
+    expect(peakRank(mixed, normalize)).toEqual({ tier: 26, seasonId: "s1" });
+    expect(currentRank(mixed, "s1", normalize)).toEqual({ tier: 26, rr: 0, seasonId: "s1" });
+    const old = update({ SeasonID: "s1", TierAfterUpdate: 23, RankedRatingAfterUpdate: 10 });
+    expect(currentRank({ LatestCompetitiveUpdate: old }, undefined, normalize)?.tier).toBe(26);
+    expect(rankHistory([old], normalize)[0]).toMatchObject({ tier: 26, value: 2610 });
+  });
+
   it("returns null peak for unranked or missing data", () => {
     expect(peakRank({})).toBeNull();
     expect(peakRank({ QueueSkills: { competitive: { SeasonalInfoBySeasonID: null } } })).toBeNull();

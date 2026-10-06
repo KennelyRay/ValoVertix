@@ -3,6 +3,7 @@ import {
   buildSkinCatalog,
   cleanName,
   indexBuddies,
+  buildTierNormalizer,
   latestTierSet,
   paidAgentIds,
   pickLevelBorder,
@@ -295,6 +296,50 @@ describe("lookups", () => {
       "B200",
     );
     expect(pickLevelBorder(borders, undefined, undefined)).toBeUndefined();
+  });
+
+  it("maps old-act tiers onto the current scale by rank name", () => {
+    const tier = (n: number, tierName: string, divisionName: string) => ({
+      tier: n,
+      tierName,
+      divisionName,
+      color: "",
+      smallIcon: null,
+      largeIcon: null,
+    });
+    const oldSet = {
+      uuid: "OLD",
+      tiers: [
+        tier(20, "DIAMOND 3", "DIAMOND"),
+        tier(23, "IMMORTAL 3", "IMMORTAL"),
+        tier(24, "RADIANT", "RADIANT"),
+      ],
+    };
+    const groupSet = { uuid: "GROUP", tiers: [tier(21, "IMMORTAL", "IMMORTAL")] };
+    const newSet = {
+      uuid: "NEW",
+      tiers: [
+        tier(20, "DIAMOND 3", "DIAMOND"),
+        tier(23, "ASCENDANT 3", "ASCENDANT"),
+        tier(24, "IMMORTAL 1", "IMMORTAL"),
+        tier(26, "IMMORTAL 3", "IMMORTAL"),
+        tier(27, "RADIANT", "RADIANT"),
+      ],
+    };
+    const seasons = [
+      { seasonUuid: "act-2021", competitiveTiersUuid: "old", startTime: "2021-01-01T00:00:00Z" },
+      { seasonUuid: "act-2020", competitiveTiersUuid: "group", startTime: "2020-06-01T00:00:00Z" },
+      { seasonUuid: "act-2026", competitiveTiersUuid: "new", startTime: "2026-09-01T00:00:00Z" },
+    ];
+    const normalize = buildTierNormalizer(seasons, [oldSet, groupSet, newSet]);
+    expect(normalize("ACT-2021", 23)).toBe(26); // old Immortal 3 -> Immortal 3, not Ascendant 3
+    expect(normalize("act-2021", 24)).toBe(27); // old Radiant
+    expect(normalize("act-2021", 20)).toBe(20);
+    expect(normalize("act-2020", 21)).toBe(24); // single "IMMORTAL" -> Immortal 1
+    expect(normalize("act-2026", 23)).toBe(23); // current act unchanged
+    expect(normalize("unknown-act", 23)).toBe(23);
+    expect(normalize("act-2021", 99)).toBe(99);
+    expect(buildTierNormalizer([], [newSet])("x", 5)).toBe(5);
   });
 
   it("excludes free starter agents from paid agents", () => {

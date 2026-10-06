@@ -14,13 +14,14 @@ const GUN = { Select: 875, Deluxe: 1275, Premium: 1775, Exclusive: 2175, Ultra: 
 const MELEE = { Select: 1750, Deluxe: 2550, Premium: 3550, Exclusive: 4350, Ultra: 4950 };
 
 const get = async (path) => (await (await fetch(API + path)).json()).data;
-const [weapons, bundles, themes, tiers, contracts, levelBorders] = await Promise.all([
+const [weapons, bundles, themes, tiers, contracts, levelBorders, compSeasons] = await Promise.all([
   get("/v1/weapons"),
   get("/v1/bundles"),
   get("/v1/themes"),
   get("/v1/contenttiers"),
   get("/v1/contracts"),
   get("/v1/levelborders"),
+  get("/v1/seasons/competitive"),
 ]);
 const riot = JSON.parse(await readFile(join(DIR, "riot.json"), "utf8"));
 const staticData = JSON.parse(await readFile(join(DIR, "static.json"), "utf8"));
@@ -153,6 +154,11 @@ staticData.bundles = featured.map((b) =>
 // Level borders for the dashboard profile card (small, so all of them).
 staticData.levelBorders = levelBorders.map((b) =>
   pick(b, ["uuid", "startingLevel", "levelNumberAppearance", "smallPlayerCardAppearance"]),
+);
+
+// Which tier table each act used, for mapping old ranks onto today's scale.
+staticData.competitiveSeasons = compSeasons.map((c) =>
+  pick(c, ["seasonUuid", "competitiveTiersUuid", "startTime"]),
 );
 
 await writeFile(join(DIR, "riot.json"), JSON.stringify(riot));

@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import {
   buildSkinCatalog,
+  buildTierNormalizer,
   fetchGameVersion,
   indexBy,
   indexBuddies,
@@ -251,14 +252,20 @@ export function useRanks() {
   const mmr = useMmr();
   const updates = useCompUpdates();
   const tierSets = useStatic("competitiveTiers");
+  const seasons = useStatic("competitiveSeasons");
   const tiers = useMemo(() => latestTierSet(tierSets.data ?? []), [tierSets.data]);
+  // Old acts used a different tier table (21-23 were Immortal); map them to today's scale.
+  const normalize = useMemo(
+    () => buildTierNormalizer(seasons.data ?? [], tierSets.data ?? []),
+    [seasons.data, tierSets.data],
+  );
   return {
     mmr,
     updates,
     tiers,
-    current: mmr.data ? currentRank(mmr.data) : null,
-    peak: mmr.data ? peakRank(mmr.data) : null,
-    history: updates.data ? rankHistory(updates.data) : [],
+    current: mmr.data ? currentRank(mmr.data, undefined, normalize) : null,
+    peak: mmr.data ? peakRank(mmr.data, normalize) : null,
+    history: updates.data ? rankHistory(updates.data, normalize) : [],
   };
 }
 

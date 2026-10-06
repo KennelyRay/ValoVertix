@@ -181,7 +181,8 @@ describe("pd client", () => {
       `/match-history/v1/history/${PUUID}?startIndex=0&endIndex=20`,
     );
     expect(PD_PATHS.matchDetails(m)).toBe(`/match-details/v1/matches/${m}`);
-    expect(PD_PATHS.loadout(PUUID)).toBe(`/personalization/v2/players/${PUUID}/playerloadout`);
+    expect(PD_PATHS.loadout(PUUID)).toBe(`/personalization/v3/players/${PUUID}/playerloadout`);
+    expect(PD_PATHS.loadoutV2(PUUID)).toBe(`/personalization/v2/players/${PUUID}/playerloadout`);
     expect(PD_PATHS.accountXp(PUUID)).toBe(`/account-xp/v1/players/${PUUID}`);
   });
 });
@@ -216,6 +217,32 @@ describe("parseRetryAfter", () => {
     expect(parseRetryAfter(null)).toBeUndefined();
     expect(parseRetryAfter("soon")).toBeUndefined();
     expect(parseRetryAfter(new Date(10_000).toUTCString(), 4_000)).toBe(6000);
+  });
+});
+
+describe("loadout", () => {
+  const identity = { PlayerCardID: "card", PlayerTitleID: "title", AccountLevel: 214 };
+
+  it("reads the v3 loadout", async () => {
+    const f = mockFetch({ Identity: identity });
+    expect((await createRiotClient(session, f).loadout()).PlayerCardID).toBe("card");
+    expect(String(f.mock.calls[0]![0])).toContain("/personalization/v3/");
+  });
+
+  it("falls back to v2 when v3 returns 404", async () => {
+    const f = vi.fn(async (url: RequestInfo | URL) =>
+      String(url).includes("/v3/")
+        ? new Response("{}", { status: 404 })
+        : new Response(JSON.stringify({ Identity: identity }), { status: 200 }),
+    );
+    expect((await createRiotClient(session, f).loadout()).AccountLevel).toBe(214);
+    expect(f).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry v2 for other errors", async () => {
+    const f = mockFetch({}, { status: 500 });
+    await expect(createRiotClient(session, f).loadout()).rejects.toMatchObject({ kind: "server" });
+    expect(f).toHaveBeenCalledTimes(1);
   });
 });
 

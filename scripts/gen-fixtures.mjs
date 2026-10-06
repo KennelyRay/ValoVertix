@@ -427,7 +427,8 @@ const staticData = {
     ...pickFields(a, ["uuid", "displayName", "displayIcon", "displayIconSmall", "isBaseContent"]),
     role: a.role ? { displayName: a.role.displayName } : null,
   })),
-  competitiveTiers: [compTiers[compTiers.length - 1]].map((set) => ({
+  // Every tier table: older acts used different numbering (see buildTierNormalizer).
+  competitiveTiers: compTiers.map((set) => ({
     uuid: set.uuid,
     tiers: set.tiers.map((t) =>
       pickFields(t, ["tier", "tierName", "divisionName", "color", "smallIcon", "largeIcon"]),

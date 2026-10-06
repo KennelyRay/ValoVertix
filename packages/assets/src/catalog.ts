@@ -178,6 +178,50 @@ export function resolveOwned<T extends { uuid: string; displayName: string }>(
   return out.sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
 
+/**
+ * Maps a tier number from any act onto the current tier scale. Acts before
+ * Episode 5 used a table where 21-23 were Immortal 1-3 and 24 was Radiant;
+ * today 21-23 are Ascendant and Immortal is 24-26. Without this, an old
+ * Immortal 3 (tier 23) reads as "Ascendant 3". Matches by rank name, then by
+ * rank group (old tables have a single "IMMORTAL"). Unknown acts pass through.
+ */
+export function buildTierNormalizer(
+  seasons: readonly {
+    seasonUuid: string;
+    competitiveTiersUuid: string;
+    startTime: string | null;
+  }[],
+  sets: readonly CompetitiveTierSet[],
+): (seasonId: string, tier: number) => number {
+  const setById = new Map(sets.map((s) => [lc(s.uuid), new Map(s.tiers.map((t) => [t.tier, t]))]));
+  const seasonSet = new Map(seasons.map((s) => [lc(s.seasonUuid), lc(s.competitiveTiersUuid)]));
+  const newest = [...seasons].sort((a, b) =>
+    (b.startTime ?? "").localeCompare(a.startTime ?? ""),
+  )[0];
+  const currentId = newest
+    ? lc(newest.competitiveTiersUuid)
+    : lc(sets[sets.length - 1]?.uuid ?? "");
+  const current = sets.find((s) => lc(s.uuid) === currentId) ?? sets[sets.length - 1];
+  const byName = new Map(current?.tiers.map((t) => [t.tierName.toUpperCase(), t.tier]));
+  const firstInGroup = new Map<string, number>();
+  for (const t of [...(current?.tiers ?? [])].sort((a, b) => a.tier - b.tier)) {
+    const group = t.divisionName.toUpperCase();
+    if (!firstInGroup.has(group)) firstInGroup.set(group, t.tier);
+  }
+
+  return (seasonId, tier) => {
+    const setId = seasonSet.get(lc(seasonId));
+    if (!setId || setId === currentId) return tier;
+    const old = setById.get(setId)?.get(tier);
+    if (!old) return tier;
+    return (
+      byName.get(old.tierName.toUpperCase()) ??
+      firstInGroup.get(old.divisionName.toUpperCase()) ??
+      tier
+    );
+  };
+}
+
 /** The newest competitive tier set (the API lists episodes oldest first). */
 export function latestTierSet(sets: readonly CompetitiveTierSet[]): Map<number, CompetitiveTier> {
   const last = sets[sets.length - 1];

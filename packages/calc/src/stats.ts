@@ -34,16 +34,33 @@ export interface RankSnapshot {
 }
 
 /** Current rank from the latest competitive update, falling back to the newest season entry. */
-export function currentRank(mmr: MmrLike, currentSeasonId?: string): RankSnapshot | null {
+/**
+ * Maps a tier from a given act onto the current tier scale (tier tables
+ * changed in 2022). Defaults to leaving tiers as they are.
+ */
+export type TierNormalizer = (seasonId: string, tier: number) => number;
+const identity: TierNormalizer = (_season, tier) => tier;
+
+export function currentRank(
+  mmr: MmrLike,
+  currentSeasonId?: string,
+  normalize: TierNormalizer = identity,
+): RankSnapshot | null {
   const latest = mmr.LatestCompetitiveUpdate;
   const seasons = mmr.QueueSkills?.competitive?.SeasonalInfoBySeasonID ?? {};
   if (currentSeasonId) {
     const s = seasons[currentSeasonId];
-    if (s) return { tier: s.CompetitiveTier, rr: s.RankedRating, seasonId: s.SeasonID };
+    if (s) {
+      return {
+        tier: normalize(s.SeasonID, s.CompetitiveTier),
+        rr: s.RankedRating,
+        seasonId: s.SeasonID,
+      };
+    }
   }
   if (latest && latest.TierAfterUpdate > 0) {
     return {
-      tier: latest.TierAfterUpdate,
+      tier: normalize(latest.SeasonID, latest.TierAfterUpdate),
       rr: latest.RankedRatingAfterUpdate,
       seasonId: latest.SeasonID,
     };
@@ -55,7 +72,10 @@ export function currentRank(mmr: MmrLike, currentSeasonId?: string): RankSnapsho
  * Highest tier ever reached in competitive: the best tier with a recorded
  * win (WinsByTier) or the best final tier of any season.
  */
-export function peakRank(mmr: MmrLike): { tier: number; seasonId: string } | null {
+export function peakRank(
+  mmr: MmrLike,
+  normalize: TierNormalizer = identity,
+): { tier: number; seasonId: string } | null {
   const seasons = Object.values(mmr.QueueSkills?.competitive?.SeasonalInfoBySeasonID ?? {});
   let best: { tier: number; seasonId: string } | null = null;
   for (const s of seasons) {
@@ -63,7 +83,8 @@ export function peakRank(mmr: MmrLike): { tier: number; seasonId: string } | nul
       .filter(([, wins]) => wins > 0)
       .map(([tier]) => Number(tier))
       .filter(Number.isFinite);
-    const tier = Math.max(s.CompetitiveTier, ...winTiers);
+    // Each act's tiers are mapped to today's scale before comparing across acts.
+    const tier = normalize(s.SeasonID, Math.max(s.CompetitiveTier, ...winTiers));
     if (tier > 0 && (!best || tier > best.tier)) best = { tier, seasonId: s.SeasonID };
   }
   return best;
@@ -81,18 +102,24 @@ export interface RankPoint {
 }
 
 /** Competitive updates as an oldest-first series, skipping placement/unranked entries. */
-export function rankHistory(updates: readonly CompUpdateLike[]): RankPoint[] {
+export function rankHistory(
+  updates: readonly CompUpdateLike[],
+  normalize: TierNormalizer = identity,
+): RankPoint[] {
   return updates
     .filter((u) => u.TierAfterUpdate > 0)
-    .map((u) => ({
-      matchId: u.MatchID,
-      time: u.MatchStartTime,
-      tier: u.TierAfterUpdate,
-      rr: u.RankedRatingAfterUpdate,
-      delta: u.RankedRatingEarned,
-      mapId: u.MapID,
-      value: u.TierAfterUpdate * 100 + u.RankedRatingAfterUpdate,
-    }))
+    .map((u) => {
+      const tier = normalize(u.SeasonID, u.TierAfterUpdate);
+      return {
+        matchId: u.MatchID,
+        time: u.MatchStartTime,
+        tier,
+        rr: u.RankedRatingAfterUpdate,
+        delta: u.RankedRatingEarned,
+        mapId: u.MapID,
+        value: tier * 100 + u.RankedRatingAfterUpdate,
+      };
+    })
     .sort((a, b) => a.time - b.time);
 }
 

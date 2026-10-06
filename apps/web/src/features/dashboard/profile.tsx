@@ -1,3 +1,4 @@
+import { isUuid } from "@valovertix/riot";
 import { pickLevelBorder, type LevelBorder, type PlayerCard } from "@valovertix/assets";
 import { RankBadge } from "@/components/shared";
 import { Skeleton } from "@/components/ui/primitives";
@@ -20,8 +21,11 @@ export function useProfile() {
   const level = xp.data?.Level ?? loadout.data?.AccountLevel;
   const hideLevel = loadout.data?.HideAccountLevel ?? false;
   const border = pickLevelBorder(borders.data ?? [], level, loadout.data?.PreferredLevelBorderID);
+  const cardId = loadout.data?.PlayerCardID;
   return {
     card,
+    /** The equipped card ID from Riot, even when valorant-api.com doesn't list that card yet. */
+    cardId: cardId && isUuid(cardId) && !/^0{8}-/.test(cardId) ? cardId.toLowerCase() : undefined,
     title,
     level,
     hideLevel,
@@ -64,8 +68,21 @@ export function LevelBadge({
   );
 }
 
-function CardArt({ card, variant }: { card: PlayerCard | undefined; variant: "tall" | "wide" }) {
-  const src = variant === "tall" ? (card?.largeArt ?? card?.displayIcon) : card?.wideArt;
+function CardArt({
+  card,
+  cardId,
+  variant,
+}: {
+  card: PlayerCard | undefined;
+  cardId: string | undefined;
+  variant: "tall" | "wide";
+}) {
+  // Fall back to valorant-api.com's standard image address for cards it doesn't list yet.
+  const fallback = cardId
+    ? `https://media.valorant-api.com/playercards/${cardId}/${variant === "tall" ? "largeart" : "wideart"}.png`
+    : undefined;
+  const src =
+    (variant === "tall" ? (card?.largeArt ?? card?.displayIcon) : card?.wideArt) ?? fallback;
   return src ? (
     <img
       src={src}
@@ -85,7 +102,15 @@ function CardArt({ card, variant }: { card: PlayerCard | undefined; variant: "ta
 export function PlayerCardShowcase() {
   const p = useProfile();
   const showLevel = p.level !== undefined && !p.hideLevel;
-  const caption = p.card ? p.card.displayName : p.pending ? "Loading card…" : "No card equipped";
+  const caption = p.card
+    ? p.card.displayName
+    : p.failed
+      ? "Couldn't load your card from Riot"
+      : p.pending
+        ? "Loading card…"
+        : p.cardId
+          ? "Equipped card"
+          : "No card equipped";
 
   return (
     <figure aria-label="Equipped player card" className="panel overflow-hidden p-0">
@@ -94,7 +119,7 @@ export function PlayerCardShowcase() {
         {p.pending ? (
           <Skeleton className="absolute inset-0" />
         ) : (
-          <CardArt card={p.card} variant="tall" />
+          <CardArt card={p.card} cardId={p.cardId} variant="tall" />
         )}
         <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-bg/95 to-transparent" />
         {showLevel && (
@@ -110,7 +135,7 @@ export function PlayerCardShowcase() {
         {p.pending ? (
           <Skeleton className="absolute inset-0" />
         ) : (
-          <CardArt card={p.card} variant="wide" />
+          <CardArt card={p.card} cardId={p.cardId} variant="wide" />
         )}
         {showLevel && (
           <LevelBadge level={p.level!} border={p.border} className="absolute bottom-2 right-2" />
@@ -134,7 +159,7 @@ export function IdentityHeader() {
     <section aria-label="Account" className="flex flex-wrap items-end justify-between gap-6">
       <div className="min-w-0">
         <p className="font-display text-lg font-semibold text-text">
-          {p.title?.titleText ?? (p.pending ? " " : "No title equipped")}
+          {p.title?.titleText ?? (p.pending || p.failed ? " " : "No title equipped")}
         </p>
         <h1 className="truncate text-4xl sm:text-6xl">{accountLabel(session)}</h1>
         <p className="mt-1 text-muted">
