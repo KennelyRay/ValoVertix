@@ -83,3 +83,22 @@ curl -si -X OPTIONS https://pd.ap.a.pvp.net/store/v1/offers/ \
 
 If any endpoint stops returning an allowed origin, build the stateless Worker described in the
 brief for that endpoint only, add its origin to `connect-src`, and list it on `/privacy`.
+
+## Update 2026-10-07: real-account findings
+
+Testing with a real account (playvalorant.com access URL, AP shard) found two endpoints that
+behave differently from the docs:
+
+- **`GET auth.riotgames.com/userinfo` returns 404** for these tokens. The 404 has no CORS
+  headers, so the browser reports a network error. The app now reads the PUUID (`sub`) and
+  Riot ID (`acct` in the id_token) from the tokens themselves and only calls `/userinfo` as a
+  fallback (`identityFromTokens` in `packages/riot/src/jwt.ts`).
+- **`GET pd.{shard}.a.pvp.net/store/v1/offers/` returns 404**, so the full price list is not
+  available. Every other pd endpoint works. The app falls back in two steps:
+  1. `POST /store/v3/storefront/{puuid}` (body `{}`, CORS allowed): exact prices for the
+     skins currently on sale (daily shop, every item in the featured bundles at its base price,
+     Night Market at the undiscounted price).
+  2. Every other skin is priced at its tier's standard list price
+     (`apps/web/src/config/tier-prices.ts`). The UI says how many skins have exact prices.
+
+  If `/store/v1/offers/` starts working again, exact prices for everything return automatically.

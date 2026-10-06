@@ -217,3 +217,58 @@ describe("parseRetryAfter", () => {
     expect(parseRetryAfter(new Date(10_000).toUTCString(), 4_000)).toBe(6000);
   });
 });
+
+describe("storefront", () => {
+  it("POSTs to v3 and flattens daily, Night Market and bundle prices", async () => {
+    const VPID = "85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741";
+    const T = "e7c63390-eda7-46e0-bb7a-a6abdacd2433";
+    const offer = (item: string, vp: number) => ({
+      OfferID: item,
+      IsDirectPurchase: true,
+      StartDate: "2026-01-01T00:00:00Z",
+      Cost: { [VPID]: vp },
+      Rewards: [{ ItemTypeID: T, ItemID: item, Quantity: 1 }],
+    });
+    const f = mockFetch({
+      FeaturedBundle: {
+        Bundle: {},
+        Bundles: [
+          {
+            Items: [
+              {
+                Item: { ItemTypeID: T, ItemID: "b1", Amount: 1 },
+                BasePrice: 1775,
+                CurrencyID: VPID,
+                DiscountedPrice: 1500,
+              },
+            ],
+          },
+        ],
+      },
+      SkinsPanelLayout: { SingleItemOffers: ["d1"], SingleItemStoreOffers: [offer("d1", 875)] },
+      BonusStore: {
+        BonusStoreOffers: [
+          { BonusOfferID: "x", Offer: offer("n1", 2175), DiscountCosts: { [VPID]: 900 } },
+        ],
+      },
+    });
+    const offers = await createRiotClient(session, f).storefront();
+    expect(offers.map((o) => [o.Rewards[0]?.ItemID, o.Cost[VPID]])).toEqual([
+      ["d1", 875],
+      ["n1", 2175],
+      ["b1", 1775],
+    ]);
+    const [url, init] = f.mock.calls[0]!;
+    expect(url).toBe(`https://pd.ap.a.pvp.net/store/v3/storefront/${PUUID}`);
+    expect(init!.method).toBe("POST");
+    expect(init!.body).toBe("{}");
+  });
+
+  it("copes with a storefront missing sections", async () => {
+    const offers = await createRiotClient(
+      session,
+      mockFetch({ SkinsPanelLayout: null }),
+    ).storefront();
+    expect(offers).toEqual([]);
+  });
+});

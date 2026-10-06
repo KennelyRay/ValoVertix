@@ -244,11 +244,49 @@ describe("signed-in pages", () => {
     expect(
       await screen.findByText(`${tierTotal.toLocaleString("en-PH")} VP`, {}, { timeout: 8000 }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Priced by tier: Riot's store price list isn't available/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Riot's full store price list isn't available/)).toBeInTheDocument();
     expect(screen.getByText("Not available")).toBeInTheDocument();
     expect(screen.queryByText(/Some data didn't load from Riot/)).not.toBeInTheDocument();
+  });
+
+  it("uses exact storefront prices for skins on sale when the price list is missing", async () => {
+    const onSale = owned.find((o) => !o.skin.isContractReward && o.skin.tierId)!;
+    server.use(
+      http.get("https://pd.*.a.pvp.net/store/v1/offers/", () =>
+        HttpResponse.json({}, { status: 404 }),
+      ),
+      http.post("https://pd.*.a.pvp.net/store/v3/storefront/:puuid", () =>
+        HttpResponse.json({
+          SkinsPanelLayout: {
+            SingleItemStoreOffers: [
+              {
+                OfferID: "x",
+                Cost: { [CURRENCY.vp]: 9999 },
+                Rewards: [
+                  {
+                    ItemTypeID: ITEM_TYPE.skinLevel,
+                    ItemID: onSale.skin.levels[0]!.uuid,
+                    Quantity: 1,
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+      ),
+    );
+    const devName = new Map(staticData.contentTiers.map((t) => [t.uuid.toLowerCase(), t.devName]));
+    const tierOf = (o: (typeof owned)[number]) =>
+      tierPriceVp(o.skin.tierId ? devName.get(o.skin.tierId) : undefined, o.skin.weaponCategory) ??
+      0;
+    const total = owned
+      .filter((o) => !o.skin.isContractReward)
+      .reduce((sum, o) => sum + (o === onSale ? 9999 : tierOf(o)), 0);
+    renderApp("/spending");
+    expect(
+      await screen.findByText(`${total.toLocaleString("en-PH")} VP`, {}, { timeout: 8000 }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/1 skin is on sale right now/)).toBeInTheDocument();
   });
 
   it("stats shows rank, aggregates and lazily loads more matches", async () => {

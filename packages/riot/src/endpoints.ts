@@ -54,6 +54,8 @@ export const PD_PATHS = {
   ownedItems: (puuid: string, itemTypeId: string) =>
     `/store/v1/entitlements/${seg(puuid)}/${seg(itemTypeId)}`,
   offers: () => "/store/v1/offers/",
+  /** POST with body {}. Daily shop, featured bundles and Night Market, with prices. */
+  storefront: (puuid: string) => `/store/v3/storefront/${seg(puuid)}`,
   wallet: (puuid: string) => `/store/v1/wallet/${seg(puuid)}`,
   loadout: (puuid: string) => `/personalization/v2/players/${seg(puuid)}/playerloadout`,
   accountXp: (puuid: string) => `/account-xp/v1/players/${seg(puuid)}`,

@@ -78,13 +78,16 @@ function useClient(): { session: Session | null; client: RiotClient | null } {
 function useRiotQuery<T>(
   name: string,
   fn: (c: RiotClient, signal: AbortSignal) => Promise<T>,
-  opts: { retryOnMount?: boolean; staleTime?: number } = {},
+  {
+    enabled = true,
+    ...opts
+  }: { enabled?: boolean; retryOnMount?: boolean; staleTime?: number } = {},
 ) {
   const { session, client } = useClient();
   return useQuery({
     queryKey: riotKey(session?.id ?? "none", session?.shard, name),
     queryFn: ({ signal }) => fn(client!, signal),
-    enabled: Boolean(client),
+    enabled: Boolean(client) && enabled,
     ...opts,
   });
 }
@@ -95,6 +98,13 @@ export const useOwned = (type: ItemTypeKey) =>
 // the tier fallback takes over until the user retries.
 export const useOffers = () =>
   useRiotQuery("offers", (c, s) => c.offers(s), { retryOnMount: false, staleTime: Infinity });
+/** Exact prices for what is on sale now. Only requested when the full price list fails. */
+export const useStorefront = (enabled: boolean) =>
+  useRiotQuery("storefront", (c, s) => c.storefront(s), {
+    enabled,
+    retryOnMount: false,
+    staleTime: 10 * 60_000,
+  });
 export const useWallet = () => useRiotQuery("wallet", (c, s) => c.wallet(s));
 export const useLoadout = () => useRiotQuery("loadout", (c, s) => c.loadout(s));
 export const useAccountXp = () => useRiotQuery("xp", (c, s) => c.accountXp(s));
@@ -187,16 +197,22 @@ export function useSpending() {
   const agents = useStatic("agents");
 
   const { tierById } = skins;
-  // Riot's price list can be unavailable (404). Then every skin is priced at its tier's
-  // standard list price instead, and the UI says so.
+  // Riot's full price list can be unavailable (404). Then skins on sale right now get
+  // their exact storefront price, every other skin its tier's standard list price,
+  // and the UI says so.
+  const storefront = useStorefront(offers.isError);
   const priceSource: PriceSource | null = offers.data ? "offer" : offers.isError ? "tier" : null;
+  const priceList = useMemo(
+    () => offers.data ?? storefront.data ?? [],
+    [offers.data, storefront.data],
+  );
 
   const result = useMemo(() => {
     if (!skins.owned || !priceSource) return null;
     const paid = agents.data && agentsOwned.data ? paidAgentIds(agentsOwned.data, agents.data) : [];
     return computeSpending({
       ownedSkins: skins.owned,
-      offers: indexOffers(offers.data ?? []),
+      offers: indexOffers(priceList),
       currency: { vp: CURRENCY.vp, radianite: CURRENCY.radianite },
       includeAgents,
       paidAgentIds: paid,
@@ -205,15 +221,7 @@ export function useSpending() {
           tierPriceVp(s.tierId ? tierById.get(s.tierId)?.devName : undefined, s.weaponCategory),
       }),
     });
-  }, [
-    skins.owned,
-    offers.data,
-    priceSource,
-    tierById,
-    agents.data,
-    agentsOwned.data,
-    includeAgents,
-  ]);
+  }, [skins.owned, priceList, priceSource, tierById, agents.data, agentsOwned.data, includeAgents]);
 
   const currency = currencyConfig();
   const money = result ? vpToMoneyRange(result.totalVp, currency.rate) : null;
@@ -224,6 +232,9 @@ export function useSpending() {
     currency,
     offerIndex: useMemo(() => (offers.data ? indexOffers(offers.data) : null), [offers.data]),
     priceSource,
+    /** Skins with an exact Riot price vs. ones priced by tier (only differs in "tier" mode). */
+    exactCount: result?.priced.filter((p) => p.source === "offer").length ?? 0,
+    tierCount: result?.priced.filter((p) => p.source === "tier").length ?? 0,
     agentsAvailable: Boolean(agentsOwned.data && agents.data),
     isPending: skins.isPending || offers.isPending,
     error: skins.error ?? null,

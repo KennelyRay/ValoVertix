@@ -22,6 +22,7 @@ import {
   offersSchema,
   ownedItemsSchema,
   regionSchema,
+  storefrontSchema,
   userInfoSchema,
   walletSchema,
 } from "./schemas";
@@ -141,6 +142,12 @@ export function createRiotClient(session: RiotSession, f?: FetchLike) {
       }),
     offers: (signal?: AbortSignal) =>
       pd("store.offers", PD_PATHS.offers(), offersSchema, { signal }).then((r) => r.Offers),
+    storefront: (signal?: AbortSignal) =>
+      pd("store.storefront", PD_PATHS.storefront(puuid), storefrontSchema, {
+        method: "POST",
+        body: {},
+        signal,
+      }),
     wallet: (signal?: AbortSignal) =>
       pd("store.wallet", PD_PATHS.wallet(puuid), walletSchema, { signal }).then((r) => r.Balances),
     loadout: (signal?: AbortSignal) =>

@@ -28,19 +28,38 @@ export function EstimateInfo({ label = "What this can't count" }: { label?: stri
   );
 }
 
-/** Shown when Riot's price list is unavailable and skins are priced by tier. */
-export function TierPriceNote({ compact = false }: { compact?: boolean }) {
+/** Shown when Riot's full price list is unavailable and some skins are priced by tier. */
+export function TierPriceNote({
+  exactCount,
+  tierCount,
+  compact = false,
+}: {
+  exactCount: number;
+  tierCount: number;
+  compact?: boolean;
+}) {
   return (
     <div role="note" className="border-l-2 border-warn pl-3 text-sm">
-      <p className="font-medium">Priced by tier: Riot's store price list isn't available.</p>
-      {!compact && (
-        <p className="mt-1 text-muted">
-          Riot returned no price list for this sign-in, so each skin is counted at the standard list
-          price for its tier (for example Premium 1,775 VP, Premium knife 3,550 VP). Exclusive and
-          Ultra skins vary, so this estimate is rougher than usual. Radianite upgrade costs can't be
-          estimated without the price list.
-        </p>
-      )}
+      <p className="font-medium">Riot's full store price list isn't available.</p>
+      <p className="mt-1 text-muted">
+        {exactCount > 0 ? (
+          <>
+            {exactCount} {exactCount === 1 ? "skin is" : "skins are"} on sale right now, so{" "}
+            {exactCount === 1 ? "it has its" : "they have their"} exact price. The other {tierCount}{" "}
+            use the standard list price for their tier.
+          </>
+        ) : (
+          <>Each skin uses the standard list price for its tier.</>
+        )}
+        {!compact && (
+          <>
+            {" "}
+            Tier prices are, for example, Premium 1,775 VP and a Premium knife 3,550 VP. Exclusive
+            and Ultra skins vary, so this estimate is rougher than usual. Radianite upgrade costs
+            can't be estimated without the full price list.
+          </>
+        )}
+      </p>
     </div>
   );
 }

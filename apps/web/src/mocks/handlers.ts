@@ -37,6 +37,48 @@ function authorized(request: Request) {
 const unauthorized = () =>
   HttpResponse.json({ httpStatus: 401, errorCode: "BAD_CLAIMS" }, { status: 401 });
 
+/** A plausible v3 storefront built from the fixture prices: 4 daily, 3 bundle, 2 Night Market. */
+function demoStorefront() {
+  const vp = "85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741";
+  const vpOf = (o: { Cost: object }) => (o.Cost as Record<string, number | undefined>)[vp];
+  const skins = riot.offers.Offers.filter(
+    (o) => o.Rewards[0]?.ItemTypeID === ITEM_TYPE.skinLevel && vpOf(o),
+  );
+  return {
+    FeaturedBundle: {
+      Bundle: {},
+      Bundles: [
+        {
+          Items: skins.slice(4, 7).map((o) => ({
+            Item: { ItemTypeID: ITEM_TYPE.skinLevel, ItemID: o.Rewards[0]!.ItemID, Amount: 1 },
+            BasePrice: vpOf(o),
+            CurrencyID: vp,
+            DiscountPercent: 0,
+            DiscountedPrice: vpOf(o),
+            IsPromoItem: false,
+          })),
+        },
+      ],
+      BundleRemainingDurationInSeconds: 86_400,
+    },
+    SkinsPanelLayout: {
+      SingleItemOffers: skins.slice(0, 4).map((o) => o.OfferID),
+      SingleItemStoreOffers: skins.slice(0, 4),
+      SingleItemOffersRemainingDurationInSeconds: 43_200,
+    },
+    BonusStore: {
+      BonusStoreOffers: skins.slice(7, 9).map((o) => ({
+        BonusOfferID: o.OfferID,
+        Offer: o,
+        DiscountPercent: 30,
+        DiscountCosts: {},
+        IsSeen: false,
+      })),
+      BonusStoreRemainingDurationInSeconds: 86_400,
+    },
+  };
+}
+
 export interface HandlerOptions {
   /** Simulated network latency in ms (demo mode feels more real with a little). */
   latency?: number;
@@ -91,6 +133,11 @@ export function createHandlers({ latency = 0 }: HandlerOptions = {}): HttpHandle
     pd("/match-details/v1/matches/:matchId", (_req, { matchId }) =>
       riot.matches.find((m) => m.matchInfo.matchId === matchId),
     ),
+    http.post(`${PD}/store/v3/storefront/:puuid`, async ({ request }) => {
+      await wait();
+      if (!authorized(request)) return unauthorized();
+      return HttpResponse.json(demoStorefront());
+    }),
     http.put(`${PD}/name-service/v2/players`, async ({ request }) => {
       await wait();
       if (!authorized(request)) return unauthorized();

@@ -75,6 +75,49 @@ export type Offer = z.output<typeof offer>;
 
 export const offersSchema = z.object({ Offers: lenientArray(offer, "offers") });
 
+const storefrontBundleItem = z.object({
+  Item: z.object({ ItemTypeID: z.string(), ItemID: id }),
+  BasePrice: z.number(),
+  CurrencyID: z.string(),
+});
+
+/**
+ * The v3 storefront, reduced to the same shape as /store/v1/offers so it can
+ * stand in for the price list: daily shop offers, every item in the featured
+ * bundles at its single-item base price, and Night Market items at their
+ * undiscounted price. Only covers what is on sale right now.
+ */
+export const storefrontSchema = z
+  .object({
+    FeaturedBundle: z
+      .object({
+        Bundles: lenientArray(
+          z.object({ Items: lenientArray(storefrontBundleItem, "storefront.bundleItems") }),
+          "storefront.bundles",
+        ).nullish(),
+      })
+      .nullish(),
+    SkinsPanelLayout: z
+      .object({ SingleItemStoreOffers: lenientArray(offer, "storefront.daily").nullish() })
+      .nullish(),
+    BonusStore: z
+      .object({
+        BonusStoreOffers: lenientArray(z.object({ Offer: offer }), "storefront.nightMarket"),
+      })
+      .nullish(),
+  })
+  .transform((sf): Offer[] => [
+    ...(sf.SkinsPanelLayout?.SingleItemStoreOffers ?? []),
+    ...(sf.BonusStore?.BonusStoreOffers ?? []).map((b) => b.Offer),
+    ...(sf.FeaturedBundle?.Bundles ?? []).flatMap((bundle) =>
+      bundle.Items.map((i) => ({
+        OfferID: `bundle:${i.Item.ItemID}`,
+        Cost: { [i.CurrencyID]: i.BasePrice },
+        Rewards: [{ ItemTypeID: i.Item.ItemTypeID, ItemID: i.Item.ItemID, Quantity: 1 }],
+      })),
+    ),
+  ]);
+
 export const walletSchema = z.object({ Balances: z.record(z.string(), z.number()) });
 
 // ---- Player --------------------------------------------------------------

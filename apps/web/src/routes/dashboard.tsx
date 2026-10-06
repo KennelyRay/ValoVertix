@@ -141,6 +141,8 @@ function Dashboard() {
     isPending,
     error,
     priceSource,
+    exactCount,
+    tierCount,
   } = useSpending();
 
   const tierCounts = useMemo(
@@ -205,7 +207,7 @@ function Dashboard() {
               </p>
               {priceSource === "tier" && (
                 <div className="mt-3">
-                  <TierPriceNote compact />
+                  <TierPriceNote compact exactCount={exactCount} tierCount={tierCount} />
                 </div>
               )}
             </>

@@ -22,6 +22,8 @@ function Spending() {
     error,
     agentsAvailable,
     priceSource,
+    exactCount,
+    tierCount,
   } = useSpending();
   const includeAgents = useSettings((s) => s.includeAgents);
   const setSettings = useSettings((s) => s.set);
@@ -117,7 +119,7 @@ function Spending() {
         </dl>
         {priceSource === "tier" && (
           <div className="mt-4">
-            <TierPriceNote />
+            <TierPriceNote exactCount={exactCount} tierCount={tierCount} />
           </div>
         )}
         <p className="mt-4 text-sm text-muted">Based on standard PH VP pack prices.</p>

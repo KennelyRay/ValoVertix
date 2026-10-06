@@ -154,6 +154,11 @@ Before each release, re-check the endpoints with `cors-spike.html` and the comma
 
 ## Known gaps
 
+- **Store price list:** Riot's `/store/v1/offers/` returns 404 for access-URL tokens (found
+  2026-10-07). Spending uses exact storefront prices for skins on sale and standard tier prices for
+  the rest (`apps/web/src/config/tier-prices.ts`, entered by hand: verify them). Radianite upgrade
+  costs are unavailable in that mode. See `docs/cors-findings.md`.
+
 - **Guide screenshots:** `/guide` uses illustrated browser frames with redacted tokens. Replace
   them with real screenshots (with the token redacted) before launch.
 - **Lighthouse:** the demo dashboard measured Performance 90 and Accessibility 100 with the
