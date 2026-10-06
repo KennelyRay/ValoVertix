@@ -9,7 +9,7 @@ import {
   type AccessTokens,
   type Shard,
 } from "@valovertix/riot";
-import { CONNECT_ERROR_MESSAGES, ConnectError } from "./connect-errors";
+import { CONNECT_ERROR_MESSAGES, ConnectError, type ConnectStep } from "./connect-errors";
 import type { Session } from "./session-store";
 
 export { CONNECT_ERROR_MESSAGES, ConnectError };
@@ -17,22 +17,30 @@ export { CONNECT_ERROR_MESSAGES, ConnectError };
 export type ConnectResult =
   { status: "ok"; session: Session } | { status: "needs_region"; tokens: AccessTokens };
 
-function toConnectError(err: unknown): ConnectError {
-  if (!(err instanceof RiotApiError)) return new ConnectError("unexpected");
-  switch (err.kind) {
+function toConnectError(err: unknown, step: ConnectStep): ConnectError {
+  const kind = err instanceof RiotApiError ? err.kind : "unknown";
+  // Sanitized: step and error kind only, never the token.
+  console.warn(`[ValoVertix] Sign-in failed at ${step}: ${kind}`);
+  switch (kind) {
     case "auth":
     case "forbidden":
     case "bad_request":
-      return new ConnectError("rejected");
+      return new ConnectError("rejected", step);
     case "network":
-      return new ConnectError("network");
+      return new ConnectError("network", step);
     case "server":
     case "rate_limit":
-      return new ConnectError("riot_down");
+      return new ConnectError("riot_down", step);
     default:
-      return new ConnectError("unexpected");
+      return new ConnectError("unexpected", step);
   }
 }
+
+/** Runs one sign-in call and tags any failure with its step. */
+const step = <T>(name: ConnectStep, call: Promise<T>): Promise<T> =>
+  call.catch((err: unknown) => {
+    throw toConnectError(err, name);
+  });
 
 /**
  * Turns pasted tokens into a session: entitlements token, PUUID, region
@@ -43,16 +51,9 @@ export async function connectAccount(
   tokens: AccessTokens,
   opts: { shard?: Shard; remember?: boolean; demo?: boolean } = {},
 ): Promise<ConnectResult> {
-  let entitlementsToken: string;
-  let user: Awaited<ReturnType<typeof fetchUserInfo>>;
-  try {
-    [entitlementsToken, user] = await Promise.all([
-      fetchEntitlementsToken(tokens.accessToken),
-      fetchUserInfo(tokens.accessToken),
-    ]);
-  } catch (err) {
-    throw toConnectError(err);
-  }
+  // Sequential on purpose: when one fails, the error names that exact call.
+  const user = await step("userinfo", fetchUserInfo(tokens.accessToken));
+  const entitlementsToken = await step("entitlements", fetchEntitlementsToken(tokens.accessToken));
 
   let shard = opts.shard ?? null;
   if (!shard) {
@@ -60,12 +61,14 @@ export async function connectAccount(
     if (!shard) return { status: "needs_region", tokens };
   }
 
-  let clientVersion: string;
-  try {
-    clientVersion = (await fetchGameVersion()).riotClientVersion;
-  } catch {
-    throw new ConnectError("network");
-  }
+  const clientVersion = (
+    await step(
+      "version",
+      fetchGameVersion().catch(() => {
+        throw new RiotApiError("network", "static.version");
+      }),
+    )
+  ).riotClientVersion;
 
   let riotId =
     user.acct?.game_name && user.acct.tag_line

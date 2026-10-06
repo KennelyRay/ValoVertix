@@ -111,6 +111,19 @@ describe("paste-URL sign-in", () => {
     expect(useSessionStore.getState().sessions[0]?.shard).toBe("ap");
   });
 
+  it("names the failing sign-in step when Riot can't be read", async () => {
+    server.use(http.get("https://auth.riotgames.com/userinfo", () => HttpResponse.error()));
+    const user = userEvent.setup();
+    const { fakeAccessUrl } = await import("@valovertix/riot/test-utils");
+    renderApp("/");
+    await user.click(await screen.findByLabelText(/Paste the address/));
+    await user.paste(fakeAccessUrl({ exp: Math.floor(Date.now() / 1000) + 3600 }));
+    await user.click(screen.getByRole("button", { name: "Show my account" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Couldn't reach Riot");
+    expect(alert).toHaveTextContent("auth.riotgames.com/userinfo");
+  });
+
   it("falls back to a region picker when riot-geo fails", async () => {
     server.use(
       http.put("https://riot-geo.pas.si.riotgames.com/pas/v1/product/valorant", () =>

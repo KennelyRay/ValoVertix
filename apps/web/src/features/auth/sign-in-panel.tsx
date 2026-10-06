@@ -14,7 +14,7 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { toast } from "@/components/toast";
-import { CONNECT_ERROR_MESSAGES, ConnectError } from "./connect-errors";
+import { connectErrorMessage } from "./connect-errors";
 import { leaveDemo } from "./actions";
 import { useSessionStore } from "./session-store";
 
@@ -59,11 +59,7 @@ export function SignInPanel({
       void navigate({ to: "/dashboard" });
     } catch (err) {
       setPendingTokens(null);
-      setError(
-        err instanceof ConnectError
-          ? CONNECT_ERROR_MESSAGES[err.reason]
-          : CONNECT_ERROR_MESSAGES.unexpected,
-      );
+      setError(connectErrorMessage(err));
     } finally {
       setBusy(false);
     }
