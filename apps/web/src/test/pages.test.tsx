@@ -366,6 +366,24 @@ describe("error handling", () => {
     ).toBeInTheDocument();
   });
 
+  it("404 on non-core data lists it without blaming the region", async () => {
+    server.use(
+      http.get("https://pd.*.a.pvp.net/mmr/v1/players/:puuid", () =>
+        HttpResponse.json({}, { status: 404 }),
+      ),
+    );
+    renderApp("/dashboard");
+    expect(
+      await screen.findByText(
+        /Some data didn't load from Riot: Rank \(404\)/,
+        {},
+        { timeout: 8000 },
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/If you play in another region/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+
   it("404 suggests the region picker", async () => {
     server.use(
       http.get("https://pd.*.a.pvp.net/store/v1/wallet/:puuid", () =>

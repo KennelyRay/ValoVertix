@@ -15,20 +15,77 @@ import { cn } from "@/lib/cn";
 import { Button } from "./ui/button";
 import { Dialog } from "./ui/primitives";
 
+interface Failure {
+  endpoint: string;
+  kind: RiotErrorKind;
+  status: number | undefined;
+  count: number;
+}
+
 interface QueryHealth {
   rateLimited: number | null; // current retry attempt
   kinds: Set<RiotErrorKind>;
+  failures: Failure[];
+  /** Account data every player has came back 404: the likeliest cause is the wrong region. */
+  coreNotFound: boolean;
 }
+
+/** Data every account has in its own region. A 404 here points at the wrong shard. */
+const CORE_ENDPOINTS = new Set([
+  "store.wallet",
+  "store.owned.skinLevel",
+  "player.loadout",
+  "player.xp",
+]);
+
+const ENDPOINT_NAMES: Record<string, string> = {
+  "store.owned.skinLevel": "Owned skins",
+  "store.owned.skinChroma": "Skin variants",
+  "store.owned.agent": "Agents",
+  "store.owned.buddy": "Buddies",
+  "store.owned.spray": "Sprays",
+  "store.owned.playerCard": "Player cards",
+  "store.owned.title": "Titles",
+  "store.offers": "Store prices",
+  "store.wallet": "Wallet",
+  "player.loadout": "Equipped card and title",
+  "player.xp": "Account level",
+  "player.mmr": "Rank",
+  "player.compUpdates": "Rank history",
+  "player.matchHistory": "Match history",
+  "match.details": "Match details",
+  "player.names": "Riot ID",
+};
+
+const describeFailure = (f: Failure) =>
+  `${ENDPOINT_NAMES[f.endpoint] ?? f.endpoint} (${f.status ?? f.kind}${f.count > 1 ? `, ${f.count} times` : ""})`;
+
+/** Failure kinds that already have their own banner. */
+const EXPLAINED: ReadonlySet<RiotErrorKind> = new Set([
+  "auth",
+  "rate_limit",
+  "server",
+  "forbidden",
+  "schema",
+]);
+
+const EMPTY: QueryHealth = {
+  rateLimited: null,
+  kinds: new Set(),
+  failures: [],
+  coreNotFound: false,
+};
 
 /** Watches the active account's Riot queries for errors worth a banner. */
 function useQueryHealth(sessionId: string | null): QueryHealth {
   const client = useQueryClient();
-  const [health, setHealth] = useState<QueryHealth>({ rateLimited: null, kinds: new Set() });
+  const [health, setHealth] = useState<QueryHealth>(EMPTY);
   useEffect(() => {
     const cache = client.getQueryCache();
     const compute = () => {
       let rateLimited: number | null = null;
       const kinds = new Set<RiotErrorKind>();
+      const failures = new Map<string, Failure>();
       if (sessionId) {
         for (const q of cache.findAll({ queryKey: ["riot", sessionId] })) {
           const { fetchStatus, fetchFailureReason, fetchFailureCount, error } = q.state;
@@ -39,14 +96,26 @@ function useQueryHealth(sessionId: string | null): QueryHealth {
           ) {
             rateLimited = Math.max(rateLimited ?? 0, fetchFailureCount);
           }
-          if (isRiotError(error)) kinds.add(error.kind);
+          if (!isRiotError(error)) continue;
+          kinds.add(error.kind);
+          const key = `${error.endpoint}|${error.status ?? error.kind}`;
+          const prev = failures.get(key);
+          failures.set(key, {
+            endpoint: error.endpoint,
+            kind: error.kind,
+            status: error.status,
+            count: (prev?.count ?? 0) + 1,
+          });
         }
       }
-      setHealth((prev) =>
-        prev.rateLimited === rateLimited && [...kinds].join() === [...prev.kinds].join()
-          ? prev
-          : { rateLimited, kinds },
+      const list = [...failures.values()];
+      const coreNotFound = list.some(
+        (f) => f.kind === "not_found" && CORE_ENDPOINTS.has(f.endpoint),
       );
+      const signature = (h: QueryHealth) =>
+        `${h.rateLimited}|${[...h.kinds].join()}|${h.failures.map(describeFailure).join()}|${h.coreNotFound}`;
+      const next: QueryHealth = { rateLimited, kinds, failures: list, coreNotFound };
+      setHealth((prev) => (signature(prev) === signature(next) ? prev : next));
     };
     compute();
     // The cache notifies while other components render (a query is created
@@ -200,7 +269,7 @@ export function StatusBanners() {
     );
   }
 
-  if (session && health.kinds.has("not_found")) {
+  if (session && health.coreNotFound) {
     banners.push(
       <Banner
         key="404"
@@ -209,6 +278,34 @@ export function StatusBanners() {
       >
         Riot couldn't find this account's data in {SHARD_LABELS[session.shard]}. If you play in
         another region, switch it here.
+      </Banner>,
+    );
+  }
+
+  const unexplained = health.failures.filter(
+    (f) => !EXPLAINED.has(f.kind) && !(health.coreNotFound && CORE_ENDPOINTS.has(f.endpoint)),
+  );
+  if (session && unexplained.length > 0) {
+    banners.push(
+      <Banner
+        key="partial"
+        tone="info"
+        action={
+          <Button
+            size="sm"
+            onClick={() =>
+              void client.refetchQueries({
+                queryKey: ["riot", session.id],
+                predicate: (q) => q.state.status === "error",
+              })
+            }
+          >
+            Retry
+          </Button>
+        }
+      >
+        Some data didn't load from Riot: {unexplained.map(describeFailure).join(", ")}. Everything
+        else on the page is up to date.
       </Banner>,
     );
   }

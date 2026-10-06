@@ -34,6 +34,8 @@ export function createQueryClient() {
   const client: QueryClient = new QueryClient({
     queryCache: new QueryCache({
       onError: (error, query) => {
+        // Safe to log: the message is an endpoint label, error kind and status, never a URL or ID.
+        if (isRiotError(error)) console.warn(`[ValoVertix] ${error.message}`);
         if (!isRiotError(error) || error.kind !== "auth") return;
         const [scope, sessionId] = query.queryKey;
         if (scope !== "riot" || typeof sessionId !== "string") return;
