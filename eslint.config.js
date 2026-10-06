@@ -33,7 +33,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["scripts/**"],
+    files: ["scripts/**", "apps/*/scripts/**"],
     rules: { "no-console": "off" },
   },
 );

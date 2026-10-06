@@ -104,6 +104,22 @@
 .panel-raised {
   --panel-fill: var(--color-raised);
 }
+/* Nav links: a thin line grows from the centre on hover (the red bar marks the current page). */
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 0;
+  height: 1px;
+  background: var(--color-muted);
+  transform: scaleX(0);
+  transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.nav-link:hover::after {
+  transform: scaleX(1);
+}
+
 /* Clickable panels lift slightly and their edge brightens: they are buttons. */
 .panel-interactive {
   transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);

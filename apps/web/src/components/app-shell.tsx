@@ -1,123 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { m } from "framer-motion";
-import { Menu, X } from "lucide-react";
-import { AccountSwitcher, ExpiryIndicator } from "@/features/auth/account-bar";
-import { useActiveSession } from "@/features/auth/session-store";
 import { useExpiryWatcher } from "@/features/auth/actions";
 import { useSettings } from "@/features/settings-store";
 import { cn } from "@/lib/cn";
 import { Backdrop } from "./backdrop";
+import { BrandMark, SiteNav } from "./site-nav";
 import { PageTransition } from "./motion";
 import { StatusBanners } from "./status-banners";
 import { Toaster } from "./toast";
-
-const APP_LINKS = [
-  { to: "/dashboard", label: "Dashboard" },
-  { to: "/store", label: "Store" },
-  { to: "/spending", label: "Spending" },
-  { to: "/stats", label: "Stats" },
-  { to: "/collection", label: "Collection" },
-  { to: "/share", label: "Share card" },
-  { to: "/settings", label: "Accounts" },
-] as const;
-
-const PUBLIC_LINKS = [
-  { to: "/guide", label: "How to sign in" },
-  { to: "/privacy", label: "Privacy" },
-] as const;
-
-const linkClass =
-  "relative inline-flex min-h-11 items-center px-3 font-display text-base font-semibold text-muted hover:text-text data-[status=active]:text-text";
-
-/** `group` keeps the desktop and mobile underlines separate (both lists exist in the DOM). */
-function NavLinks({ onNavigate, group }: { onNavigate?: () => void; group: string }) {
-  const session = useActiveSession();
-  const links = session ? APP_LINKS : PUBLIC_LINKS;
-  return (
-    <>
-      {links.map((l) => (
-        <Link key={l.to} to={l.to} className={linkClass} onClick={onNavigate}>
-          {({ isActive }) => (
-            <>
-              {l.label}
-              {isActive && (
-                // Slides to the new link on navigation.
-                <m.span
-                  layoutId={`nav-active-${group}`}
-                  aria-hidden
-                  className="absolute inset-x-3 bottom-1.5 h-0.5 bg-accent"
-                  transition={{ type: "spring", stiffness: 500, damping: 40 }}
-                />
-              )}
-            </>
-          )}
-        </Link>
-      ))}
-    </>
-  );
-}
-
-function Header() {
-  const session = useActiveSession();
-  const [open, setOpen] = useState(false);
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  useEffect(() => setOpen(false), [pathname]);
-
-  return (
-    <header className="sticky top-0 z-40 border-b border-line bg-bg/95">
-      <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-1">
-        <Link
-          to="/"
-          className="mr-2 inline-flex min-h-11 items-center font-display text-2xl font-bold tracking-tight"
-        >
-          Valo<span className="text-accent">Vertix</span>
-        </Link>
-        <nav aria-label="Main" className="hidden flex-1 items-center lg:flex">
-          <NavLinks group="desktop" />
-        </nav>
-        <div className="ml-auto flex min-w-0 items-center gap-3">
-          {session && (
-            <>
-              <ExpiryIndicator session={session} className="hidden sm:inline-flex" />
-              <AccountSwitcher />
-            </>
-          )}
-          <button
-            type="button"
-            className="inline-flex min-h-11 min-w-11 items-center justify-center text-muted hover:text-text lg:hidden"
-            aria-expanded={open}
-            aria-controls="mobile-nav"
-            onClick={() => setOpen((o) => !o)}
-          >
-            {open ? <X aria-hidden className="size-6" /> : <Menu aria-hidden className="size-6" />}
-            <span className="sr-only">{open ? "Close menu" : "Open menu"}</span>
-          </button>
-        </div>
-      </div>
-      {open && (
-        <nav
-          id="mobile-nav"
-          aria-label="Main"
-          className="menu-in border-t border-line px-2 pb-3 lg:hidden"
-        >
-          <div className="flex flex-col">
-            <NavLinks group="mobile" onNavigate={() => setOpen(false)} />
-          </div>
-          {session && <ExpiryIndicator session={session} className="px-3 pt-2 sm:hidden" />}
-        </nav>
-      )}
-    </header>
-  );
-}
 
 function Footer() {
   return (
     <footer className="mt-16 border-t border-line">
       <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-6 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
-        <p className="max-w-xl">
-          Not endorsed by or affiliated with Riot Games. Uses unofficial endpoints that may change.
-        </p>
+        <div className="max-w-xl space-y-3">
+          <BrandMark />
+          <p>
+            Not endorsed by or affiliated with Riot Games. Uses unofficial endpoints that may
+            change.
+          </p>
+        </div>
         <nav aria-label="Footer" className="-mx-2 flex flex-wrap">
           <Link to="/guide" className="inline-flex min-h-11 items-center px-2 hover:text-text">
             Sign-in guide
@@ -151,7 +53,7 @@ export function AppShell() {
       >
         Skip to content
       </a>
-      <Header />
+      <SiteNav />
       <div className="pt-4">
         <StatusBanners />
       </div>

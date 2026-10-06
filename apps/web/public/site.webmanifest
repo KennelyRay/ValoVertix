@@ -1,0 +1,21 @@
+{
+  "name": "ValoVertix",
+  "short_name": "ValoVertix",
+  "description": "Your VALORANT profile and collection: skins, spending estimate, store and rank.",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#0e1117",
+  "theme_color": "#0e1117",
+  "icons": [
+    {
+      "src": "/brand/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/brand/icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}
