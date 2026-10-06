@@ -14,6 +14,7 @@ import {
   deleteAssetCache,
   enableAssetCache,
   fetchGameVersion,
+  fetchSkin,
   loadStatic,
 } from "./client";
 import type { Agent, Contract, Weapon } from "./schemas";
@@ -71,6 +72,25 @@ describe("loadStatic", () => {
     expect(f).toHaveBeenCalledTimes(2);
     expect((await indexedDB.databases()).map((d) => d.name)).not.toContain("valovertix-assets");
     enableAssetCache();
+  });
+
+  it("fetches a single skin", async () => {
+    const f = json({
+      status: 200,
+      data: {
+        uuid: "s1",
+        displayName: "Reaver Vandal",
+        themeUuid: null,
+        contentTierUuid: "t",
+        displayIcon: "i.png",
+        chromas: [],
+        levels: [],
+      },
+    });
+    expect((await fetchSkin("s1", f)).displayName).toBe("Reaver Vandal");
+    expect((f.mock.calls as unknown as [string][])[0]?.[0]).toBe(
+      "https://valorant-api.com/v1/weapons/skins/s1",
+    );
   });
 
   it("reads the game version", async () => {

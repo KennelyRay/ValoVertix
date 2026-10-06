@@ -107,6 +107,13 @@ export function createHandlers({ latency = 0 }: HandlerOptions = {}): HttpHandle
     }),
 
     // ---- valorant-api.com ----
+    http.get("https://valorant-api.com/v1/weapons/skins/:uuid", ({ params }) => {
+      const skins = staticData.weapons.flatMap((w) => w.skins as { uuid: string }[]);
+      const skin = skins.find((s) => s.uuid.toLowerCase() === String(params.uuid).toLowerCase());
+      return skin
+        ? HttpResponse.json({ status: 200, data: skin })
+        : HttpResponse.json({ status: 404 }, { status: 404 });
+    }),
     http.get("https://valorant-api.com/v1/:resource", ({ request }) => {
       const data = STATIC_PATHS[new URL(request.url).pathname];
       return data === undefined

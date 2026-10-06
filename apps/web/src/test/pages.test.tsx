@@ -59,7 +59,15 @@ describe("signed-out pages", () => {
       "href",
       expect.stringContaining("https://auth.riotgames.com/authorize"),
     );
-    expect(screen.getByRole("button", { name: /demo account/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Try the demo" }).length).toBeGreaterThan(0);
+    // The hero call to action jumps to the connect section on the same page.
+    expect(screen.getAllByRole("link", { name: "Connect your account" })[0]).toHaveAttribute(
+      "href",
+      "#connect",
+    );
+    expect(document.getElementById("connect")).toContainElement(
+      screen.getByLabelText(/Paste the address/),
+    );
   });
 
   it.each(["/dashboard", "/spending", "/stats", "/collection", "/share"])(

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { reportDrift, sanitizeIssues } from "@valovertix/riot";
 import {
   STATIC_RESOURCES,
+  skinSchema,
   versionSchema,
   type GameVersion,
   type StaticData,
@@ -64,6 +65,16 @@ export const fetchGameVersion = (
   getJson("version", "/v1/version", z.object({ data: versionSchema }), f, signal).then(
     (r) => r.data,
   );
+
+/** One skin by UUID (about 5 KB), for the landing showcase without loading the full catalog. */
+export const fetchSkin = (uuid: string, f: typeof fetch = fetch, signal?: AbortSignal) =>
+  getJson(
+    "skin",
+    `/v1/weapons/skins/${encodeURIComponent(uuid)}`,
+    z.object({ data: skinSchema }),
+    f,
+    signal,
+  ).then((r) => r.data);
 
 const cacheKey = (version: string, key: StaticKey) => `${CACHE_FORMAT}:${version}:${key}`;
 

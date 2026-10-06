@@ -34,6 +34,25 @@ class ResizeObserverStub {
 }
 globalThis.ResizeObserver ??= ResizeObserverStub as unknown as typeof ResizeObserver;
 
+// jsdom has no IntersectionObserver; report everything as visible so
+// scroll-triggered reveals render their content in tests.
+class IntersectionObserverStub {
+  constructor(private cb: IntersectionObserverCallback) {}
+  observe(target: Element) {
+    this.cb(
+      [{ isIntersecting: true, intersectionRatio: 1, target } as IntersectionObserverEntry],
+      this as unknown as IntersectionObserver,
+    );
+  }
+  unobserve() {}
+  disconnect() {}
+  takeRecords() {
+    return [];
+  }
+}
+globalThis.IntersectionObserver ??=
+  IntersectionObserverStub as unknown as typeof IntersectionObserver;
+
 // jsdom lacks <dialog> methods.
 HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
   this.setAttribute("open", "");

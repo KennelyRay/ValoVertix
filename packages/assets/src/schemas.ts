@@ -29,7 +29,7 @@ const skinChroma = z.object({
   streamedVideo: url,
 });
 
-const skin = z.object({
+export const skinSchema = z.object({
   uuid: z.string(),
   displayName: z.string(),
   themeUuid: z.string().nullable(),
@@ -46,7 +46,7 @@ const weapon = z.object({
   category: z.string(),
   defaultSkinUuid: z.string(),
   displayIcon: url,
-  skins: lenientArray(skin, "static.weapons.skins"),
+  skins: lenientArray(skinSchema, "static.weapons.skins"),
 });
 
 const contentTier = z.object({

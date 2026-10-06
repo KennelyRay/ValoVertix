@@ -77,6 +77,15 @@ export async function mockRiot(page: Page, onRequest?: (req: Request) => void) {
       if (req.method() === "OPTIONS") return route.fulfill({ status: 204, headers: CORS });
       const url = new URL(req.url());
       if (url.hostname === "valorant-api.com") {
+        // Landing showcase: single skins by UUID. Serve a fixture skin under the requested UUID.
+        const single = url.pathname.match(/^\/v1\/weapons\/skins\/([^/]+)$/);
+        if (single) {
+          const skins = staticData.weapons.flatMap(
+            (w) => w.skins as { uuid: string; displayIcon: string | null }[],
+          );
+          const skin = skins.find((s) => s.uuid === single[1]) ?? skins.find((s) => s.displayIcon);
+          return json(route, { status: 200, data: { ...skin, uuid: single[1] } });
+        }
         const data = STATIC[url.pathname];
         return data === undefined
           ? json(route, { status: 404 }, 404)

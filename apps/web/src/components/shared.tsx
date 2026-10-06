@@ -34,29 +34,34 @@ export function PageHeader({
 export function DemoButton({
   variant = "secondary",
   label = "Try the demo account",
+  className,
 }: {
   variant?: "primary" | "secondary" | "ghost";
   label?: string;
+  /** Replaces the standard button styling (e.g. the landing page's framed buttons). */
+  className?: string;
 }) {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
-  return (
-    <Button
-      variant={variant}
-      disabled={busy}
-      onClick={async () => {
-        setBusy(true);
-        try {
-          await startDemo();
-          void navigate({ to: "/dashboard" });
-        } catch {
-          toast.error("The demo needs service workers, which this browser has blocked.");
-        } finally {
-          setBusy(false);
-        }
-      }}
-    >
-      {busy ? "Loading demo…" : label}
+  const onClick = async () => {
+    setBusy(true);
+    try {
+      await startDemo();
+      void navigate({ to: "/dashboard" });
+    } catch {
+      toast.error("The demo needs service workers, which this browser has blocked.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const text = busy ? "Loading demo…" : label;
+  return className ? (
+    <button type="button" className={className} disabled={busy} onClick={onClick}>
+      {text}
+    </button>
+  ) : (
+    <Button variant={variant} disabled={busy} onClick={onClick}>
+      {text}
     </Button>
   );
 }

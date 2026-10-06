@@ -267,6 +267,120 @@ dialog[open]::backdrop {
   }
 }
 
+/*
+ * Landing page, after the game's website and launcher (owner request):
+ * heavy uppercase display type, framed buttons, HUD corner brackets,
+ * outlined numerals and angled bands. No Riot logos or marks are used.
+ * R-06: uppercase display type is part of the requested direction; tracking stays tight.
+ */
+.display-xl {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  line-height: 0.88;
+  letter-spacing: -0.01em;
+}
+
+/* Framed button: a solid block inside a thin outer frame that tightens on hover. */
+.btn-valo {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  min-height: 3.25rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0 1.75rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: transform 150ms ease;
+}
+.btn-valo::before {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border: 1px solid var(--btn-frame, var(--color-line-strong));
+  transition:
+    inset 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 200ms;
+}
+.btn-valo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--btn-fill);
+  transition: background-color 200ms;
+}
+.btn-valo:hover::before,
+.btn-valo:focus-visible::before {
+  inset: -2px;
+  border-color: var(--btn-frame-hover, var(--color-muted));
+}
+.btn-valo:active {
+  transform: scale(0.98);
+}
+.btn-valo-primary {
+  --btn-fill: var(--color-accent);
+  --btn-frame: rgb(255 77 94 / 0.55);
+  --btn-frame-hover: var(--color-accent);
+  color: var(--color-accent-ink);
+}
+.btn-valo-primary:hover {
+  --btn-fill: #ff6674;
+}
+.btn-valo-ghost {
+  --btn-fill: rgb(14 17 23 / 0.6);
+  color: var(--color-text);
+}
+.btn-valo-ghost:hover {
+  --btn-fill: var(--color-raised);
+}
+
+/* HUD corner brackets around a framed area. */
+.hud-corners {
+  position: relative;
+}
+.hud-corners::before,
+.hud-corners::after {
+  content: "";
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  pointer-events: none;
+  border-color: var(--color-text);
+  opacity: 0.7;
+}
+.hud-corners::before {
+  top: -1px;
+  left: -1px;
+  border-top: 2px solid;
+  border-left: 2px solid;
+}
+.hud-corners::after {
+  right: -1px;
+  bottom: -1px;
+  border-right: 2px solid;
+  border-bottom: 2px solid;
+}
+
+/* Big outlined numerals for numbered steps (decorative; order comes from the list). */
+.numeral-outline {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 0.8;
+  color: transparent;
+  -webkit-text-stroke: 1px var(--color-line-strong);
+}
+
+/* Angled band across the page. */
+.band-angled {
+  clip-path: polygon(0 0, 100% 18%, 100% 100%, 0 82%);
+}
+
 .skeleton {
   background: linear-gradient(
     90deg,
