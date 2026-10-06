@@ -5,6 +5,7 @@ import {
   fetchEntitlementsToken,
   fetchRegion,
   fetchUserInfo,
+  identityFromTokens,
   regionToShard,
   type AccessTokens,
   type Shard,
@@ -51,8 +52,19 @@ export async function connectAccount(
   tokens: AccessTokens,
   opts: { shard?: Shard; remember?: boolean; demo?: boolean } = {},
 ): Promise<ConnectResult> {
-  // Sequential on purpose: when one fails, the error names that exact call.
-  const user = await step("userinfo", fetchUserInfo(tokens.accessToken));
+  // The PUUID and Riot ID are claims in the pasted tokens. /userinfo is only a
+  // fallback: it returns 404 for some tokens from the playvalorant.com flow.
+  const fromTokens = identityFromTokens(tokens.accessToken, tokens.idToken);
+  const user = fromTokens.puuid
+    ? {
+        sub: fromTokens.puuid,
+        acct: fromTokens.riotId && {
+          game_name: fromTokens.riotId.gameName,
+          tag_line: fromTokens.riotId.tagLine,
+        },
+      }
+    : await step("userinfo", fetchUserInfo(tokens.accessToken));
+  // Sequential on purpose: when a call fails, the error names that exact call.
   const entitlementsToken = await step("entitlements", fetchEntitlementsToken(tokens.accessToken));
 
   let shard = opts.shard ?? null;

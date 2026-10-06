@@ -111,6 +111,31 @@ describe("paste-URL sign-in", () => {
     expect(useSessionStore.getState().sessions[0]?.shard).toBe("ap");
   });
 
+  it("signs in from token claims when /userinfo returns 404", async () => {
+    let userinfoCalls = 0;
+    server.use(
+      http.get("https://auth.riotgames.com/userinfo", () => {
+        userinfoCalls += 1;
+        return HttpResponse.json({}, { status: 404 });
+      }),
+    );
+    const user = userEvent.setup();
+    const { fakeAccessUrl } = await import("@valovertix/riot/test-utils");
+    renderApp("/");
+    await user.click(await screen.findByLabelText(/Paste the address/));
+    await user.paste(
+      fakeAccessUrl({
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        sub: riot.puuid,
+        acct: { game_name: "Token Name", tag_line: "TKN" },
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "Show my account" }));
+    expect(await screen.findByRole("heading", { name: "Token Name#TKN" })).toBeInTheDocument();
+    expect(userinfoCalls).toBe(0);
+    expect(useSessionStore.getState().sessions[0]?.puuid).toBe(riot.puuid);
+  });
+
   it("names the failing sign-in step when Riot can't be read", async () => {
     server.use(http.get("https://auth.riotgames.com/userinfo", () => HttpResponse.error()));
     const user = userEvent.setup();

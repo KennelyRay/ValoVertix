@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseAccessUrl } from "./access-url";
-import { decodeJwtPayload, jwtExpiry } from "./jwt";
+import { decodeJwtPayload, identityFromTokens, jwtExpiry } from "./jwt";
 import { fakeAccessUrl, fakeJwt } from "./test-utils";
 
 const NOW = 1_790_000_000_000;
@@ -117,5 +117,34 @@ describe("jwt helpers", () => {
     expect(decodeJwtPayload("e30.bm90IGpzb24.x")).toBeNull();
     expect(decodeJwtPayload("e30.MTIz.x")).toBeNull();
     expect(jwtExpiry(fakeJwt({ exp: "soon" }))).toBeNull();
+  });
+});
+
+describe("identityFromTokens", () => {
+  const PUUID = "0D3E5A1B-7C2F-4E8A-9B6D-1F2A3C4D5E6F";
+
+  it("reads the PUUID from sub and the Riot ID from the id_token", () => {
+    const access = fakeJwt({ sub: PUUID });
+    const id = fakeJwt({ sub: PUUID, acct: { game_name: "Ace", tag_line: "PH1" } });
+    expect(identityFromTokens(access, id)).toEqual({
+      puuid: PUUID.toLowerCase(),
+      riotId: { gameName: "Ace", tagLine: "PH1" },
+    });
+  });
+
+  it("falls back to the id_token sub and ignores non-UUID subjects", () => {
+    expect(identityFromTokens(fakeJwt({ sub: "nope" }), fakeJwt({ sub: PUUID })).puuid).toBe(
+      PUUID.toLowerCase(),
+    );
+    expect(identityFromTokens(fakeJwt({ sub: "nope" }), fakeJwt({}))).toEqual({
+      puuid: null,
+      riotId: null,
+    });
+  });
+
+  it("needs both name parts for a Riot ID", () => {
+    const id = fakeJwt({ sub: PUUID, acct: { game_name: "Ace", tag_line: "" } });
+    expect(identityFromTokens("garbage", id).riotId).toBeNull();
+    expect(identityFromTokens("garbage", fakeJwt({ acct: "x" })).riotId).toBeNull();
   });
 });

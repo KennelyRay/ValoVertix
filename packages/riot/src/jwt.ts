@@ -26,3 +26,30 @@ export function jwtExpiry(token: string): number | null {
   const exp = decodeJwtPayload(token)?.exp;
   return typeof exp === "number" && Number.isFinite(exp) ? exp * 1000 : null;
 }
+
+export interface TokenIdentity {
+  puuid: string | null;
+  riotId: { gameName: string; tagLine: string } | null;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const str = (v: unknown) => (typeof v === "string" && v.trim() ? v : null);
+
+/**
+ * Reads the PUUID (`sub`) and Riot ID (id_token `acct`) from the sign-in tokens,
+ * so the app doesn't depend on /userinfo, which rejects some tokens. The claims
+ * aren't verified here; Riot validates the token on every call that follows.
+ */
+export function identityFromTokens(accessToken: string, idToken: string): TokenIdentity {
+  const access = decodeJwtPayload(accessToken);
+  const id = decodeJwtPayload(idToken);
+  const sub = [access?.sub, id?.sub].map(str).find((s) => s !== null && UUID_RE.test(s)) ?? null;
+  const acct =
+    id?.acct && typeof id.acct === "object" ? (id.acct as Record<string, unknown>) : null;
+  const gameName = str(acct?.game_name);
+  const tagLine = str(acct?.tag_line);
+  return {
+    puuid: sub ? sub.toLowerCase() : null,
+    riotId: gameName && tagLine ? { gameName, tagLine } : null,
+  };
+}
