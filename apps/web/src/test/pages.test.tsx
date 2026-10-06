@@ -179,11 +179,22 @@ describe("signed-in pages", () => {
   it("dashboard shows identity, ranks, wallet and the estimate", async () => {
     renderApp("/dashboard");
     expect(await screen.findByRole("heading", { name: "Demo Player#DEMO" })).toBeInTheDocument();
-    expect(await screen.findByText(pesoRange, {}, { timeout: 8000 })).toBeInTheDocument();
+    // Headline numbers count up; their final values are also exposed to screen readers.
+    const [low, high] = pesoRange.split("–");
+    expect((await screen.findAllByText(low!, {}, { timeout: 8000 })).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(high!, {}, { timeout: 8000 })).length).toBeGreaterThan(0);
     expect(screen.getAllByText("ESTIMATE").length).toBeGreaterThanOrEqual(2);
     expect(await screen.findByText("Ascendant 1")).toBeInTheDocument();
-    expect(screen.getByText("12,450")).toBeInTheDocument();
-    expect(screen.getByText(String(owned.length))).toBeInTheDocument();
+    expect((await screen.findAllByText("12,450")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(String(owned.length))).length).toBeGreaterThan(0);
+
+    // The equipped player card, with its name and the level plate.
+    const card = screen.getByRole("figure", { name: "Equipped player card" });
+    const equipped = staticData.playerCards.find(
+      (c) => c.uuid.toLowerCase() === riot.loadout.Identity.PlayerCardID.toLowerCase(),
+    )!;
+    expect(await within(card).findByText(equipped.displayName)).toBeInTheDocument();
+    expect(within(card).getAllByTitle("Account level 214").length).toBeGreaterThan(0);
   });
 
   it("spending shows totals, limits and reacts to the agent toggle", async () => {

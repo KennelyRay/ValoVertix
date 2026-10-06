@@ -52,6 +52,21 @@ describe("store page", () => {
     expect(within(night).getAllByText("Not flipped in game")).toHaveLength(3);
   });
 
+  it("opens the skin details when a store skin is clicked", async () => {
+    const user = userEvent.setup();
+    renderApp("/store");
+    const daily = await screen.findByRole("region", { name: "Daily offers" }, { timeout: 8000 });
+    const first = sf.SkinsPanelLayout.SingleItemStoreOffers[0]!;
+    const name = skinName(first.Rewards[0]!.ItemID)!;
+    await user.click(await within(daily).findByRole("button", { name: new RegExp(name) }));
+    const dialog = await screen.findByRole("dialog", { name });
+    expect(
+      within(dialog).getByText(
+        `${first.Cost["85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741"].toLocaleString("en-PH")} VP`,
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("offers a retry when the storefront fails", async () => {
     server.use(
       http.post("https://pd.*.a.pvp.net/store/v3/storefront/:puuid", () =>

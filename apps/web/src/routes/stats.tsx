@@ -76,7 +76,7 @@ function Matches() {
 
   const loaded = details.summaries.length;
   return (
-    <div className="space-y-6">
+    <div className="reveal-children space-y-6">
       <Panel aria-labelledby="agg-title">
         <h2 id="agg-title" className="text-xl">
           Across your last {loaded} loaded matches
@@ -283,7 +283,7 @@ export default function StatsRoute() {
       <PageHeader title="Stats">
         Rank, ranked history and your recent matches, straight from Riot.
       </PageHeader>
-      <div className="space-y-6">
+      <div className="reveal-children space-y-6">
         <RankPanel />
         <Matches />
       </div>

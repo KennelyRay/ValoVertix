@@ -7,6 +7,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { m } from "framer-motion";
 import { Info, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -95,6 +96,7 @@ export function Tabs<T extends string>({
   label: string;
 }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const groupId = useId();
   const onKey = (e: KeyboardEvent, index: number) => {
     const delta = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
     if (!delta && e.key !== "Home" && e.key !== "End") return;
@@ -131,13 +133,20 @@ export function Tabs<T extends string>({
           onClick={() => onChange(t.id)}
           onKeyDown={(e) => onKey(e, i)}
           className={cn(
-            "-mb-px min-h-11 shrink-0 border-b-2 px-3 font-display text-base font-semibold",
-            t.id === value
-              ? "border-accent text-text"
-              : "border-transparent text-muted hover:text-text",
+            "relative -mb-px min-h-11 shrink-0 px-3 font-display text-base font-semibold transition-colors",
+            t.id === value ? "text-text" : "text-muted hover:text-text",
           )}
         >
           {t.label}
+          {t.id === value && (
+            // Slides between tabs.
+            <m.span
+              layoutId={`tab-underline-${groupId}`}
+              aria-hidden
+              className="absolute inset-x-0 bottom-0 h-0.5 bg-accent"
+              transition={{ type: "spring", stiffness: 500, damping: 40 }}
+            />
+          )}
         </button>
       ))}
     </div>
@@ -189,7 +198,7 @@ export function InfoPopover({
           id={id}
           role="region"
           aria-label={label}
-          className="absolute left-0 z-30 mt-1 w-[min(22rem,calc(100vw-2rem))] border border-line-strong bg-raised p-4 text-sm leading-relaxed shadow-2xl shadow-black/60"
+          className="pop-in absolute left-0 z-30 mt-1 w-[min(22rem,calc(100vw-2rem))] border border-line-strong bg-raised p-4 text-sm leading-relaxed shadow-2xl shadow-black/60"
         >
           {children}
         </div>
@@ -238,8 +247,8 @@ export function Dialog({
       className={cn(
         "m-0 max-h-dvh max-w-none border-line-strong bg-surface p-0 text-text",
         side
-          ? "ml-auto h-dvh w-full border-l sm:w-[34rem]"
-          : "mx-auto mt-[10vh] w-[min(32rem,calc(100vw-2rem))] border",
+          ? "drawer ml-auto h-dvh w-full border-l sm:w-[34rem]"
+          : "modal mx-auto mt-[10vh] w-[min(32rem,calc(100vw-2rem))] border",
       )}
     >
       {open && (

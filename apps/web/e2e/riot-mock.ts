@@ -21,6 +21,7 @@ const STATIC: Record<string, unknown> = {
   "/v1/bundles": staticData.bundles,
   "/v1/buddies": staticData.buddies,
   "/v1/playercards": staticData.playerCards,
+  "/v1/levelborders": staticData.levelBorders,
   "/v1/sprays": staticData.sprays,
   "/v1/playertitles": staticData.titles,
   "/v1/agents": staticData.agents,

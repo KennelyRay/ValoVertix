@@ -16,6 +16,7 @@ export function SkinDrawer({
   price,
   tierName,
   onClose,
+  liveStorePrice = false,
 }: {
   owned: OwnedSkin<CatalogSkin> | null;
   /** Riot's price list, for Radianite upgrade costs. Null when unavailable. */
@@ -24,6 +25,8 @@ export function SkinDrawer({
   price: Price;
   tierName: string | undefined;
   onClose: () => void;
+  /** Opened from the Store page: the VP price is Riot's current price, not an estimate. */
+  liveStorePrice?: boolean;
 }) {
   return (
     <Dialog side open={Boolean(owned)} onClose={onClose} title={owned?.skin.name ?? ""}>
@@ -34,6 +37,7 @@ export function SkinDrawer({
           offers={offers}
           price={price}
           tierName={tierName}
+          liveStorePrice={liveStorePrice}
         />
       )}
     </Dialog>
@@ -45,15 +49,19 @@ function SkinDetail({
   offers,
   price,
   tierName,
+  liveStorePrice,
 }: {
   owned: OwnedSkin<CatalogSkin>;
   offers: OfferIndex | null;
   price: Price;
   tierName: string | undefined;
+  liveStorePrice: boolean;
 }) {
   const { skin } = owned;
   const ownedLevels = new Set(owned.levelIds);
-  const ownedChromas = new Set([skin.chromas[0]?.uuid, ...owned.chromaIds]);
+  // The base variant comes with the skin, so it only counts as owned when the skin is.
+  const ownsSkin = owned.levelIds.length > 0;
+  const ownedChromas = new Set([...(ownsSkin ? [skin.chromas[0]?.uuid] : []), ...owned.chromaIds]);
   const firstVideo =
     skin.levels.find((l) => l.video)?.video ?? skin.chromas.find((c) => c.video)?.video ?? null;
   const [video, setVideo] = useState<string | null>(firstVideo);
@@ -87,7 +95,13 @@ function SkinDetail({
         </div>
         <div>
           <dt className="flex items-center gap-2 text-muted">
-            {price?.source === "tier" ? "Standard tier price" : "Store price"} <EstimateTag />
+            {liveStorePrice ? (
+              "Price in your store"
+            ) : (
+              <>
+                {price?.source === "tier" ? "Standard tier price" : "Store price"} <EstimateTag />
+              </>
+            )}
           </dt>
           <dd className="font-display text-xl font-bold">
             {vp ? fmtVp(vp) : skin.isContractReward ? "Battle pass or contract" : "No store offer"}

@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
-import { LazyMotion, MotionConfig, domAnimation } from "framer-motion";
+import { LazyMotion, MotionConfig, domMax } from "framer-motion";
 import { parseAccessUrl } from "@valovertix/riot";
 import { fakeAccessUrl } from "@valovertix/riot/test-utils";
 import { connectAccount } from "@/features/auth/connect";
@@ -41,7 +41,7 @@ export function renderApp(path: string) {
   const router = createAppRouter(createMemoryHistory({ initialEntries: [path] }));
   const utils = render(
     <MotionConfig reducedMotion="always">
-      <LazyMotion features={domAnimation} strict>
+      <LazyMotion features={domMax} strict>
         <QueryClientProvider client={queryClient}>
           <RouterProvider router={router} />
         </QueryClientProvider>

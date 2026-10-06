@@ -76,6 +76,13 @@ const buddy = z.object({
   levels: z.array(z.object({ uuid: z.string() })),
 });
 
+const levelBorder = z.object({
+  uuid: z.string(),
+  startingLevel: z.number(),
+  levelNumberAppearance: url,
+  smallPlayerCardAppearance: url,
+});
+
 const playerCard = z.object({
   uuid: z.string(),
   displayName: z.string(),
@@ -158,6 +165,10 @@ export const STATIC_RESOURCES = {
     path: "/v1/playercards",
     schema: envelope(lenientArray(playerCard, "static.playercards")),
   },
+  levelBorders: {
+    path: "/v1/levelborders",
+    schema: envelope(lenientArray(levelBorder, "static.levelborders")),
+  },
   sprays: { path: "/v1/sprays", schema: envelope(lenientArray(spray, "static.sprays")) },
   titles: { path: "/v1/playertitles", schema: envelope(lenientArray(title, "static.titles")) },
   agents: {
@@ -185,6 +196,7 @@ export type Theme = StaticData<"themes">[number];
 export type Bundle = StaticData<"bundles">[number];
 export type Buddy = StaticData<"buddies">[number];
 export type PlayerCard = StaticData<"playerCards">[number];
+export type LevelBorder = StaticData<"levelBorders">[number];
 export type Spray = StaticData<"sprays">[number];
 export type PlayerTitle = StaticData<"titles">[number];
 export type Agent = StaticData<"agents">[number];

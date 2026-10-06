@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { m } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { AccountSwitcher, ExpiryIndicator } from "@/features/auth/account-bar";
 import { useActiveSession } from "@/features/auth/session-store";
@@ -7,6 +8,7 @@ import { useExpiryWatcher } from "@/features/auth/actions";
 import { useSettings } from "@/features/settings-store";
 import { cn } from "@/lib/cn";
 import { Backdrop } from "./backdrop";
+import { PageTransition } from "./motion";
 import { StatusBanners } from "./status-banners";
 import { Toaster } from "./toast";
 
@@ -28,7 +30,8 @@ const PUBLIC_LINKS = [
 const linkClass =
   "relative inline-flex min-h-11 items-center px-3 font-display text-base font-semibold text-muted hover:text-text data-[status=active]:text-text";
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+/** `group` keeps the desktop and mobile underlines separate (both lists exist in the DOM). */
+function NavLinks({ onNavigate, group }: { onNavigate?: () => void; group: string }) {
   const session = useActiveSession();
   const links = session ? APP_LINKS : PUBLIC_LINKS;
   return (
@@ -39,7 +42,13 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             <>
               {l.label}
               {isActive && (
-                <span aria-hidden className="absolute inset-x-3 bottom-1.5 h-0.5 bg-accent" />
+                // Slides to the new link on navigation.
+                <m.span
+                  layoutId={`nav-active-${group}`}
+                  aria-hidden
+                  className="absolute inset-x-3 bottom-1.5 h-0.5 bg-accent"
+                  transition={{ type: "spring", stiffness: 500, damping: 40 }}
+                />
               )}
             </>
           )}
@@ -65,7 +74,7 @@ function Header() {
           Valo<span className="text-accent">Vertix</span>
         </Link>
         <nav aria-label="Main" className="hidden flex-1 items-center lg:flex">
-          <NavLinks />
+          <NavLinks group="desktop" />
         </nav>
         <div className="ml-auto flex min-w-0 items-center gap-3">
           {session && (
@@ -87,9 +96,13 @@ function Header() {
         </div>
       </div>
       {open && (
-        <nav id="mobile-nav" aria-label="Main" className="border-t border-line px-2 pb-3 lg:hidden">
+        <nav
+          id="mobile-nav"
+          aria-label="Main"
+          className="menu-in border-t border-line px-2 pb-3 lg:hidden"
+        >
           <div className="flex flex-col">
-            <NavLinks onNavigate={() => setOpen(false)} />
+            <NavLinks group="mobile" onNavigate={() => setOpen(false)} />
           </div>
           {session && <ExpiryIndicator session={session} className="px-3 pt-2 sm:hidden" />}
         </nav>
@@ -123,6 +136,7 @@ function Footer() {
 
 export function AppShell() {
   useExpiryWatcher();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const motion = useSettings((s) => s.motion);
   useEffect(() => {
     document.documentElement.dataset.motion = motion;
@@ -146,7 +160,9 @@ export function AppShell() {
         tabIndex={-1}
         className={cn("mx-auto min-h-dvh w-full max-w-7xl flex-1 px-4 pb-8 outline-none")}
       >
-        <Outlet />
+        <PageTransition routeKey={pathname}>
+          <Outlet />
+        </PageTransition>
       </main>
       <Footer />
       <Toaster />

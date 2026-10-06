@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useRef, type ReactNode } from "react";
-import { indexBy } from "@valovertix/assets";
-import { vpToMoneyRange } from "@valovertix/calc";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { indexBy, type CatalogSkin } from "@valovertix/assets";
+import { vpToMoneyRange, type OwnedSkin } from "@valovertix/calc";
 import { CURRENCY, ITEM_TYPE, type Storefront } from "@valovertix/riot";
 import { LoadingBlock, PageHeader, RequireSession } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { EmptyNote, ErrorNote, EstimateTag } from "@/components/ui/primitives";
 import { useNow } from "@/features/auth/account-bar";
-import { currencyConfig, useOwned, useStatic, useStorefront } from "@/features/data";
+import { Stagger } from "@/components/motion";
+import { SkinDrawer } from "@/features/collection/skin-drawer";
+import { currencyConfig, useOwned, useOwnedSkins, useStatic, useStorefront } from "@/features/data";
 import { useStoreItems, type StoreItem } from "@/features/store/use-store-items";
 import { cn } from "@/lib/cn";
 import { apiColor, fmtMoney, fmtPct, fmtTimeLeft, fmtVp } from "@/lib/format";
@@ -57,6 +59,28 @@ function ItemArt({ item, className }: { item: StoreItem; className?: string }) {
   );
 }
 
+function Tile({
+  onOpen,
+  className,
+  children,
+}: {
+  onOpen: (() => void) | undefined;
+  className: string;
+  children: ReactNode;
+}) {
+  return onOpen ? (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={cn("panel-interactive w-full text-left", className)}
+    >
+      {children}
+    </button>
+  ) : (
+    <div className={className}>{children}</div>
+  );
+}
+
 function TierLine({ item, owned }: { item: StoreItem; owned: boolean }) {
   return (
     <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted">
@@ -100,7 +124,7 @@ function Section({
   );
 }
 
-function Daily({ sf, endsAt, resolve, owned }: StoreProps) {
+function Daily({ sf, endsAt, resolve, owned, openSkin }: StoreProps) {
   const offers = sf.daily.offers;
   return (
     <Section
@@ -113,33 +137,38 @@ function Daily({ sf, endsAt, resolve, owned }: StoreProps) {
           Riot didn't return a daily shop for this account.
         </EmptyNote>
       ) : (
-        <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stagger as="ul" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {offers.map((o) => {
             const reward = o.Rewards[0];
             if (!reward) return null;
             const item = resolve(reward.ItemTypeID, reward.ItemID);
             const vp = o.Cost[CURRENCY.vp] ?? 0;
             return (
-              <li key={o.OfferID} className="panel flex flex-col p-3 sm:p-4">
-                <ItemArt item={item} className="aspect-[2/1]" />
-                <p className="mt-3 line-clamp-2 font-medium leading-snug">{item.name}</p>
-                <TierLine item={item} owned={owned.has(reward.ItemID.toLowerCase())} />
-                <div className="mt-auto pt-3">
-                  <p className="font-display text-2xl font-bold tabular-nums">{fmtVp(vp)}</p>
-                  <p className="text-sm text-muted">
-                    <Peso vp={vp} />
-                  </p>
-                </div>
-              </li>
+              <Stagger.Item as="li" key={o.OfferID} className="flex">
+                <Tile
+                  onOpen={openSkin(reward.ItemID, vp)}
+                  className="panel flex h-full w-full flex-col p-3 sm:p-4"
+                >
+                  <ItemArt item={item} className="aspect-[2/1]" />
+                  <p className="mt-3 line-clamp-2 font-medium leading-snug">{item.name}</p>
+                  <TierLine item={item} owned={owned.has(reward.ItemID.toLowerCase())} />
+                  <div className="mt-auto pt-3">
+                    <p className="font-display text-2xl font-bold tabular-nums">{fmtVp(vp)}</p>
+                    <p className="text-sm text-muted">
+                      <Peso vp={vp} />
+                    </p>
+                  </div>
+                </Tile>
+              </Stagger.Item>
             );
           })}
-        </ul>
+        </Stagger>
       )}
     </Section>
   );
 }
 
-function Bundles({ sf, endsAt, resolve, owned }: StoreProps) {
+function Bundles({ sf, endsAt, resolve, owned, openSkin }: StoreProps) {
   const bundleData = useStatic("bundles");
   const byId = useMemo(() => indexBy(bundleData.data ?? []), [bundleData.data]);
   if (sf.bundles.length === 0) return null;
@@ -199,30 +228,36 @@ function Bundles({ sf, endsAt, resolve, owned }: StoreProps) {
                 {b.items.map((i) => {
                   const item = resolve(i.itemTypeId, i.itemId);
                   return (
-                    <li
-                      key={`${i.itemTypeId}:${i.itemId}`}
-                      className="flex flex-col border border-line bg-bg/60 p-3"
-                    >
-                      <ItemArt item={item} className="aspect-[2/1]" />
-                      <p className="mt-2 line-clamp-2 text-sm font-medium leading-snug">
-                        {item.name}
-                      </p>
-                      <TierLine
-                        item={item}
-                        owned={i.itemTypeId === ITEM_TYPE.skinLevel && owned.has(i.itemId)}
-                      />
-                      <p className="mt-auto pt-2 text-sm tabular-nums">
-                        {i.discountedPrice < i.basePrice ? (
-                          <>
-                            <span className="text-muted line-through">{fmtVp(i.basePrice)}</span>{" "}
-                            {fmtVp(i.discountedPrice)}
-                          </>
-                        ) : i.basePrice > 0 ? (
-                          fmtVp(i.basePrice)
-                        ) : (
-                          "Included"
-                        )}
-                      </p>
+                    <li key={`${i.itemTypeId}:${i.itemId}`} className="flex">
+                      <Tile
+                        onOpen={
+                          i.itemTypeId === ITEM_TYPE.skinLevel
+                            ? openSkin(i.itemId, i.basePrice)
+                            : undefined
+                        }
+                        className="flex h-full w-full flex-col border border-line bg-bg/60 p-3"
+                      >
+                        <ItemArt item={item} className="aspect-[2/1]" />
+                        <p className="mt-2 line-clamp-2 text-sm font-medium leading-snug">
+                          {item.name}
+                        </p>
+                        <TierLine
+                          item={item}
+                          owned={i.itemTypeId === ITEM_TYPE.skinLevel && owned.has(i.itemId)}
+                        />
+                        <p className="mt-auto pt-2 text-sm tabular-nums">
+                          {i.discountedPrice < i.basePrice ? (
+                            <>
+                              <span className="text-muted line-through">{fmtVp(i.basePrice)}</span>{" "}
+                              {fmtVp(i.discountedPrice)}
+                            </>
+                          ) : i.basePrice > 0 ? (
+                            fmtVp(i.basePrice)
+                          ) : (
+                            "Included"
+                          )}
+                        </p>
+                      </Tile>
                     </li>
                   );
                 })}
@@ -240,7 +275,7 @@ function Bundles({ sf, endsAt, resolve, owned }: StoreProps) {
   );
 }
 
-function NightMarket({ sf, endsAt, resolve, owned }: StoreProps) {
+function NightMarket({ sf, endsAt, resolve, owned, openSkin }: StoreProps) {
   if (!sf.nightMarket || sf.nightMarket.offers.length === 0) return null;
   return (
     <Section
@@ -251,7 +286,7 @@ function NightMarket({ sf, endsAt, resolve, owned }: StoreProps) {
       <p className="-mt-2 text-sm text-muted">
         Your personal discounts. Cards you haven't flipped in the game are shown here too.
       </p>
-      <ul className="grid grid-cols-2 gap-3 md:grid-cols-3">
+      <Stagger as="ul" className="grid grid-cols-2 gap-3 md:grid-cols-3">
         {sf.nightMarket.offers.map((n) => {
           const reward = n.offer.Rewards[0];
           if (!reward) return null;
@@ -260,31 +295,38 @@ function NightMarket({ sf, endsAt, resolve, owned }: StoreProps) {
           const price = n.discountedCost[CURRENCY.vp] ?? base;
           const pct = base > 0 ? 1 - price / base : 0;
           return (
-            <li key={n.offer.OfferID} className="panel flex flex-col p-3 sm:p-4">
-              <div className="flex items-start justify-between gap-2">
-                <span className="font-display text-xl font-bold text-accent">−{fmtPct(pct)}</span>
-                {!n.isSeen && <span className="text-xs text-muted">Not flipped in game</span>}
-              </div>
-              <ItemArt item={item} className="aspect-[2/1]" />
-              <p className="mt-3 line-clamp-2 font-medium leading-snug">{item.name}</p>
-              <TierLine item={item} owned={owned.has(reward.ItemID.toLowerCase())} />
-              <div className="mt-auto pt-3">
-                <p className="text-sm text-muted line-through tabular-nums">{fmtVp(base)}</p>
-                <p className="font-display text-2xl font-bold tabular-nums">{fmtVp(price)}</p>
-                <p className="text-sm text-muted">
-                  <Peso vp={price} />
-                </p>
-              </div>
-            </li>
+            <Stagger.Item as="li" key={n.offer.OfferID} className="flex">
+              <Tile
+                onOpen={openSkin(reward.ItemID, base)}
+                className="panel flex h-full w-full flex-col p-3 sm:p-4"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="font-display text-xl font-bold text-accent">−{fmtPct(pct)}</span>
+                  {!n.isSeen && <span className="text-xs text-muted">Not flipped in game</span>}
+                </div>
+                <ItemArt item={item} className="aspect-[2/1]" />
+                <p className="mt-3 line-clamp-2 font-medium leading-snug">{item.name}</p>
+                <TierLine item={item} owned={owned.has(reward.ItemID.toLowerCase())} />
+                <div className="mt-auto pt-3">
+                  <p className="text-sm text-muted line-through tabular-nums">{fmtVp(base)}</p>
+                  <p className="font-display text-2xl font-bold tabular-nums">{fmtVp(price)}</p>
+                  <p className="text-sm text-muted">
+                    <Peso vp={price} />
+                  </p>
+                </div>
+              </Tile>
+            </Stagger.Item>
           );
         })}
-      </ul>
+      </Stagger>
     </Section>
   );
 }
 
 interface StoreProps {
   sf: Storefront;
+  /** Returns a handler that opens the skin drawer, or undefined if the skin isn't known. */
+  openSkin: (levelId: string, vp: number) => (() => void) | undefined;
   endsAt: (remainingSeconds: number | null) => number | null;
   resolve: ReturnType<typeof useStoreItems>;
   owned: Set<string>;
@@ -292,6 +334,19 @@ interface StoreProps {
 
 function Store() {
   const storefront = useStorefront(true);
+  const { catalog, owned: ownedSkins, tierById } = useOwnedSkins();
+  const [drawer, setDrawer] = useState<{ owned: OwnedSkin<CatalogSkin>; vp: number } | null>(null);
+  const openSkin = (levelId: string, vp: number) => {
+    const skin = catalog?.byLevelId.get(levelId.toLowerCase());
+    if (!skin) return undefined;
+    // Not-owned skins open with nothing owned, so every level shows as available to buy.
+    const owned = ownedSkins?.find((o) => o.skin.uuid === skin.uuid) ?? {
+      skin,
+      levelIds: [],
+      chromaIds: [],
+    };
+    return () => setDrawer({ owned, vp });
+  };
   const resolve = useStoreItems();
   const ownedLevels = useOwned("skinLevel");
   const owned = useMemo(() => new Set(ownedLevels.data ?? []), [ownedLevels.data]);
@@ -326,7 +381,7 @@ function Store() {
     );
   }
 
-  const props: StoreProps = { sf: storefront.data, endsAt, resolve, owned };
+  const props: StoreProps = { sf: storefront.data, endsAt, resolve, owned, openSkin };
   return (
     <div className="space-y-12">
       <p className="flex flex-wrap items-center gap-2 text-sm text-muted">
@@ -336,6 +391,18 @@ function Store() {
       <Daily {...props} />
       <Bundles {...props} />
       <NightMarket {...props} />
+      <SkinDrawer
+        owned={drawer?.owned ?? null}
+        offers={null}
+        price={drawer ? { vp: drawer.vp, source: "offer" } : undefined}
+        liveStorePrice
+        tierName={
+          drawer?.owned.skin.tierId
+            ? tierById.get(drawer.owned.skin.tierId)?.displayName.replace(/ Edition$/, "")
+            : undefined
+        }
+        onClose={() => setDrawer(null)}
+      />
     </div>
   );
 }

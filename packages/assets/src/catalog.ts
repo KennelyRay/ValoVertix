@@ -198,3 +198,22 @@ export const paidAgentIds = (ownedAgentIds: readonly string[], agents: readonly 
 };
 
 export type { PlayerCard, PlayerTitle };
+
+/**
+ * The level border to show: the player's chosen border when set, otherwise the
+ * highest border their level has unlocked (matching the game's default).
+ */
+export function pickLevelBorder<T extends { uuid: string; startingLevel: number }>(
+  borders: readonly T[],
+  level: number | undefined,
+  preferredId: string | undefined,
+): T | undefined {
+  const preferred = preferredId
+    ? borders.find((b) => b.uuid.toLowerCase() === preferredId.toLowerCase())
+    : undefined;
+  if (preferred) return preferred;
+  if (level === undefined) return undefined;
+  return [...borders]
+    .filter((b) => b.startingLevel <= level)
+    .sort((a, b) => b.startingLevel - a.startingLevel)[0];
+}

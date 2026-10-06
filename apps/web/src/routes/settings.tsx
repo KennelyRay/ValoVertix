@@ -182,7 +182,7 @@ export default function SettingsRoute() {
   return (
     <>
       <PageHeader title="Accounts and settings">Manage what this browser keeps.</PageHeader>
-      <div className="space-y-6">
+      <div className="reveal-children space-y-6">
         <Accounts />
         <Preferences />
         <DangerZone />

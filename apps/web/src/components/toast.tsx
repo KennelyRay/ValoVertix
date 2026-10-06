@@ -38,7 +38,7 @@ function ToastItem({ t }: { t: Toast }) {
   return (
     <div
       className={cn(
-        "flex items-start gap-3 border bg-raised py-1 pl-4 pr-1 text-sm shadow-xl shadow-black/50",
+        "toast-in flex items-start gap-3 border bg-raised py-1 pl-4 pr-1 text-sm shadow-xl shadow-black/50",
         t.tone === "error"
           ? "border-loss/60"
           : t.tone === "success"

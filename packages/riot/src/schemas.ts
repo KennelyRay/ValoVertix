@@ -192,6 +192,7 @@ export const loadoutSchema = z.object({
     PlayerTitleID: z.string(),
     AccountLevel: z.number().optional(),
     HideAccountLevel: z.boolean().optional(),
+    PreferredLevelBorderID: z.string().optional(),
   }),
 });
 

@@ -5,6 +5,7 @@ import {
   indexBuddies,
   latestTierSet,
   paidAgentIds,
+  pickLevelBorder,
   resolveOwned,
   upgradeLabel,
 } from "./catalog";
@@ -260,6 +261,20 @@ describe("lookups", () => {
     ]);
     expect(tiers.get(3)?.tierName).toBe("IRON 1");
     expect(latestTierSet([]).size).toBe(0);
+  });
+
+  it("picks the preferred level border, else the highest unlocked", () => {
+    const borders = [
+      { uuid: "B1", startingLevel: 1 },
+      { uuid: "B200", startingLevel: 200 },
+      { uuid: "B220", startingLevel: 220 },
+    ];
+    expect(pickLevelBorder(borders, 214, undefined)?.uuid).toBe("B200");
+    expect(pickLevelBorder(borders, 214, "b220")?.uuid).toBe("B220");
+    expect(pickLevelBorder(borders, 214, "00000000-0000-0000-0000-000000000000")?.uuid).toBe(
+      "B200",
+    );
+    expect(pickLevelBorder(borders, undefined, undefined)).toBeUndefined();
   });
 
   it("excludes free starter agents from paid agents", () => {

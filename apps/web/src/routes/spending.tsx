@@ -69,7 +69,7 @@ function Spending() {
           }));
 
   return (
-    <div className="space-y-6">
+    <div className="reveal-children space-y-6">
       <Panel aria-labelledby="totals-title" className="panel-raised">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 id="totals-title" className="text-xl">

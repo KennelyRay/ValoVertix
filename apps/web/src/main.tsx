@@ -7,7 +7,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
-import { LazyMotion, MotionConfig, domAnimation } from "framer-motion";
+import { LazyMotion, MotionConfig, domMax } from "framer-motion";
 import { useSessionStore } from "@/features/auth/session-store";
 import { startDemo } from "@/features/auth/actions";
 import { useSettings } from "@/features/settings-store";
@@ -19,7 +19,7 @@ function App() {
   const motion = useSettings((s) => s.motion);
   return (
     <MotionConfig reducedMotion={motion === "reduce" ? "always" : "user"}>
-      <LazyMotion features={domAnimation} strict>
+      <LazyMotion features={domMax} strict>
         <QueryClientProvider client={queryClient}>
           <RouterProvider router={router} />
         </QueryClientProvider>
