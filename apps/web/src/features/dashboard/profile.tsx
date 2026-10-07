@@ -1,11 +1,11 @@
 import { isUuid } from "@valovertix/riot";
 import { pickLevelBorder, type LevelBorder, type PlayerCard } from "@valovertix/assets";
-import { RankBadge } from "@/components/shared";
 import { Skeleton } from "@/components/ui/primitives";
 import { accountLabel } from "@/features/auth/account-bar";
 import { useActiveSession } from "@/features/auth/session-store";
 import { useAccountXp, useLoadout, useRanks, useStatic } from "@/features/data";
 import { cn } from "@/lib/cn";
+import { titleCase } from "@/lib/format";
 import { DataFreshness } from "@/features/data-freshness";
 
 /** Everything the profile needs: equipped card and title, level and its border. */
@@ -96,13 +96,22 @@ function CardArt({
   );
 }
 
+const EYEBROW = "text-xs font-semibold uppercase tracking-[0.2em] text-muted";
+
 /**
- * The equipped player card, shown like the in-game career screen: full-height
- * card art with the level plate at the bottom. A wide banner on small screens.
+ * The top of the dashboard, like the client's career header: the equipped card
+ * (tall, with its level plate) over a blurred wash of its own art, the title
+ * and Riot ID, and the current and peak rank on the right.
  */
-export function PlayerCardShowcase() {
+export function ProfileHero() {
+  const session = useActiveSession()!;
   const p = useProfile();
+  const { current, peak, tiers, mmr } = useRanks();
   const showLevel = p.level !== undefined && !p.hideLevel;
+  const rankInfo = current?.tier ? tiers.get(current.tier) : undefined;
+  const peakInfo = peak?.tier ? tiers.get(peak.tier) : undefined;
+  const tierName = (t: number | undefined) =>
+    t ? titleCase(tiers.get(t)?.tierName ?? `Tier ${t}`) : "Unranked";
   const caption = p.card
     ? p.card.displayName
     : p.failed
@@ -112,93 +121,120 @@ export function PlayerCardShowcase() {
         : p.cardId
           ? "Equipped card"
           : "No card equipped";
+  const wideArt =
+    p.card?.wideArt ??
+    (p.cardId ? `https://media.valorant-api.com/playercards/${p.cardId}/wideart.png` : null);
 
   return (
-    <figure aria-label="Equipped player card" className="panel overflow-hidden p-0">
-      {/* Tall card (desktop) */}
-      <div className="relative hidden aspect-[268/640] lg:block">
-        {p.pending ? (
-          <Skeleton className="absolute inset-0" />
-        ) : (
-          <CardArt card={p.card} cardId={p.cardId} variant="tall" />
-        )}
-        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-bg/95 to-transparent" />
-        {showLevel && (
-          <LevelBadge
-            level={p.level!}
-            border={p.border}
-            className="absolute bottom-5 left-1/2 -translate-x-1/2"
-          />
-        )}
-      </div>
-      {/* Wide banner (phones and tablets) */}
-      <div className="relative aspect-[452/128] lg:hidden">
-        {p.pending ? (
-          <Skeleton className="absolute inset-0" />
-        ) : (
-          <CardArt card={p.card} cardId={p.cardId} variant="wide" />
-        )}
-        {showLevel && (
-          <LevelBadge level={p.level!} border={p.border} className="absolute bottom-2 right-2" />
-        )}
-      </div>
-      <figcaption className="px-4 py-3 text-sm">
-        <span className="text-muted">Equipped card</span>
-        <span className="block truncate font-medium">{caption}</span>
-      </figcaption>
-    </figure>
-  );
-}
+    <section aria-label="Account" className="panel relative isolate overflow-hidden p-0">
+      {/* The card's wide art as a dim, blurred backdrop (above the panel fill, below the
+          content); text sits on the dark side of the scrim. */}
+      {wideArt && (
+        <img
+          src={wideArt}
+          alt=""
+          aria-hidden
+          className="absolute inset-0 size-full scale-110 object-cover opacity-70 blur-[2px]"
+          decoding="async"
+        />
+      )}
+      <div
+        aria-hidden
+        className="absolute inset-0 bg-gradient-to-r from-bg from-15% via-bg/80 to-bg/55"
+      />
+      <span aria-hidden className="absolute inset-x-0 top-0 h-[3px] bg-accent" />
 
-/** Riot ID, equipped title, level and ranks. */
-export function IdentityHeader() {
-  const session = useActiveSession()!;
-  const p = useProfile();
-  const { current, peak, tiers, mmr } = useRanks();
+      <div className="relative grid items-end gap-5 p-5 sm:grid-cols-[auto_minmax(0,1fr)] sm:p-6 xl:grid-cols-[auto_minmax(0,1fr)_auto]">
+        <figure aria-label="Equipped player card" className="flex items-end gap-4 sm:block">
+          <div className="relative aspect-[268/640] w-24 shrink-0 overflow-hidden border border-line-strong bg-raised sm:w-32">
+            {p.pending ? (
+              <Skeleton className="absolute inset-0" />
+            ) : (
+              <CardArt card={p.card} cardId={p.cardId} variant="tall" />
+            )}
+            <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-bg/95 to-transparent" />
+            {showLevel && (
+              <LevelBadge
+                level={p.level!}
+                border={p.border}
+                className="absolute bottom-2 left-1/2 origin-bottom -translate-x-1/2 scale-[0.7] sm:scale-[0.8]"
+              />
+            )}
+          </div>
+          <figcaption className="mt-2 max-w-32 text-xs sm:max-w-32">
+            <span className="block text-muted">Equipped card</span>
+            <span className="block truncate font-medium text-text">{caption}</span>
+          </figcaption>
+        </figure>
 
-  return (
-    <section aria-label="Account" className="flex flex-wrap items-end justify-between gap-6">
-      <div className="min-w-0">
-        <p className="font-display text-lg font-semibold text-text">
-          {p.title?.titleText ?? (p.pending || p.failed ? " " : "No title equipped")}
-        </p>
-        <h1 className="truncate text-4xl sm:text-6xl">{accountLabel(session)}</h1>
-        <p className="mt-1 text-muted">
-          {p.level !== undefined ? (
-            <>
-              Account level <span className="text-text tabular-nums">{p.level}</span>
-              {p.hideLevel && " (hidden in game)"}
-            </>
-          ) : p.failed ? (
-            "Level unavailable"
-          ) : (
-            "Loading level…"
-          )}
-        </p>
-        <DataFreshness className="mt-2" />
+        <div className="min-w-0 self-center">
+          <p className="font-display text-lg font-semibold text-accent">
+            {p.title?.titleText ?? (p.pending || p.failed ? " " : "No title equipped")}
+          </p>
+          <h1 className="display-xl truncate text-4xl sm:text-6xl">{accountLabel(session)}</h1>
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <p className="text-sm text-muted">
+              {p.level !== undefined ? (
+                <>
+                  Account level{" "}
+                  <span className="font-semibold text-text tabular-nums">{p.level}</span>
+                  {p.hideLevel && " (hidden in game)"}
+                </>
+              ) : p.failed ? (
+                "Level unavailable"
+              ) : (
+                "Loading level…"
+              )}
+            </p>
+            <DataFreshness />
+          </div>
+        </div>
+
+        <dl className="grid gap-4 border-line sm:col-span-2 sm:grid-cols-2 xl:col-span-1 xl:grid-cols-1 xl:border-l xl:pl-6">
+          <div className="flex items-center gap-3">
+            {mmr.isPending ? (
+              <Skeleton className="size-16" />
+            ) : rankInfo?.largeIcon ? (
+              <img src={rankInfo.largeIcon} alt="" width={64} height={64} className="size-16" />
+            ) : (
+              <span aria-hidden className="size-16 border border-dashed border-line-strong" />
+            )}
+            <div className="min-w-0">
+              <dt className={EYEBROW}>Current rank</dt>
+              <dd className="font-display text-2xl font-bold uppercase leading-tight">
+                {mmr.isPending ? <Skeleton className="h-7 w-32" /> : tierName(current?.tier)}
+              </dd>
+              {current?.tier ? (
+                <dd className="mt-1 w-40">
+                  <span className="flex justify-between text-xs text-muted tabular-nums">
+                    <span>Rank rating</span>
+                    <span className="text-text">{current.rr} RR</span>
+                  </span>
+                  <span aria-hidden className="mt-1 block h-1 bg-line">
+                    <span
+                      className="block h-full bg-accent"
+                      style={{ width: `${Math.min(100, current.rr)}%` }}
+                    />
+                  </span>
+                </dd>
+              ) : null}
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {peakInfo?.smallIcon ? (
+              <img src={peakInfo.smallIcon} alt="" width={40} height={40} className="size-10" />
+            ) : (
+              <span aria-hidden className="size-10" />
+            )}
+            <div>
+              <dt className={EYEBROW}>Peak rank</dt>
+              <dd className="font-display text-xl font-bold uppercase leading-tight">
+                {mmr.isPending ? <Skeleton className="h-6 w-28" /> : tierName(peak?.tier)}
+              </dd>
+            </div>
+          </div>
+        </dl>
       </div>
-      <dl className="flex flex-wrap gap-x-8 gap-y-4">
-        <div>
-          <dt className="mb-1 text-sm text-muted">Current rank</dt>
-          <dd>
-            {mmr.isPending ? (
-              <Skeleton className="h-10 w-36" />
-            ) : (
-              <RankBadge tier={current?.tier} rr={current?.rr} tiers={tiers} />
-            )}
-          </dd>
-        </div>
-        <div>
-          <dt className="mb-1 text-sm text-muted">Peak rank</dt>
-          <dd>
-            {mmr.isPending ? (
-              <Skeleton className="h-10 w-36" />
-            ) : (
-              <RankBadge tier={peak?.tier} tiers={tiers} />
-            )}
-          </dd>
-        </div>
-      </dl>
     </section>
   );
 }
