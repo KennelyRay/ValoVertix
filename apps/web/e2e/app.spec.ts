@@ -30,7 +30,7 @@ test("demo flow works on every page @mobile", async ({ page }) => {
 
   for (const [path, marker] of [
     ["/spending", "Based on standard PH VP pack prices."],
-    ["/stats", "Recent matches"],
+    ["/stats", "Peak rank"],
     ["/collection", "Search by name"],
     ["/share", "Download PNG"],
   ] as const) {

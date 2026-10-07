@@ -35,9 +35,9 @@ export function Stagger({
 }: {
   children: ReactNode;
   className?: string;
-  as?: "div" | "ul" | "dl";
+  as?: "div" | "ul" | "ol" | "dl";
 }) {
-  const Component = as === "ul" ? m.ul : as === "dl" ? m.dl : m.div;
+  const Component = as === "ul" ? m.ul : as === "ol" ? m.ol : as === "dl" ? m.dl : m.div;
   return (
     <Component className={className} variants={staggerParent} initial="hidden" animate="show">
       {children}
