@@ -22,6 +22,9 @@ function Footer({ onShortcuts }: { onShortcuts: () => void }) {
             Not endorsed by or affiliated with Riot Games. Uses unofficial endpoints that may
             change.
           </p>
+          <p>
+            Created by: <span className="font-semibold text-text">Kennely</span>
+          </p>
         </div>
         <nav aria-label="Footer" className="-mx-2 flex flex-wrap">
           <Link to="/guide" className="inline-flex min-h-11 items-center px-2 hover:text-text">
