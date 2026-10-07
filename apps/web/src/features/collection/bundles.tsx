@@ -1,13 +1,14 @@
 import { useDeferredValue, useId, useMemo, useState } from "react";
 import type { CatalogSkin, ContentTier } from "@valovertix/assets";
-import { groupByCollection, vpToMoneyRange } from "@valovertix/calc";
+import { groupByCollection } from "@valovertix/calc";
 import { LoadingBlock } from "@/components/shared";
 import { Dropdown } from "@/components/ui/dropdown";
 import { Dialog, EmptyNote, ErrorNote, EstimateTag, Switch } from "@/components/ui/primitives";
 import { useSettings } from "@/features/settings-store";
 import { useSpending, useStatic } from "@/features/data";
 import { cn } from "@/lib/cn";
-import { apiColor, fmtInt, fmtMoney, fmtPct, fmtVp } from "@/lib/format";
+import { usePricing } from "@/features/pricing";
+import { apiColor, fmtInt, fmtPct, fmtVp } from "@/lib/format";
 
 type Sort = "complete" | "owned" | "name";
 type Show = "all" | "complete" | "incomplete";
@@ -133,7 +134,7 @@ function Progress({ owned, total }: { owned: number; total: number }) {
 
 /** "About 3,550 VP to complete", or nothing once complete. */
 function CostToComplete({ row, detailed = false }: { row: BundleRow; detailed?: boolean }) {
-  const { currency } = useSpending();
+  const pricing = usePricing();
   if (row.ownedCount >= row.total) return null;
   const missing = row.total - row.ownedCount;
   if (!row.missingVp) {
@@ -161,8 +162,7 @@ function CostToComplete({ row, detailed = false }: { row: BundleRow; detailed?: 
       </p>
       <p className="mt-1 font-display text-3xl font-bold tabular-nums">{fmtVp(row.missingVp)}</p>
       <p className="text-sm text-muted tabular-nums">
-        {fmtMoney(vpToMoneyRange(row.missingVp, currency.rate), currency.format)} for{" "}
-        {missing - row.missingUnpriced} missing{" "}
+        {pricing.fmtValue(row.missingVp)} for {missing - row.missingUnpriced} missing{" "}
         {missing - row.missingUnpriced === 1 ? "skin" : "skins"} at single-item prices
       </p>
       {row.missingUnpriced > 0 && (

@@ -16,13 +16,13 @@ const PAGE_INFO: Record<string, { blurb: string; points: string[] }> = {
     ],
   },
   Store: {
-    blurb: "Your shop right now, with peso estimates next to every VP price.",
+    blurb: "Your shop right now, with a money estimate next to every VP price.",
     points: ["Daily offers and reset timer", "Featured bundles", "Night Market, when it's on"],
   },
   Spending: {
     blurb: "What your skins would cost at today's store prices.",
     points: [
-      "Total in VP and pesos",
+      "Total in VP and your currency",
       "Breakdown by tier, weapon and collection",
       "Your most expensive skins",
     ],

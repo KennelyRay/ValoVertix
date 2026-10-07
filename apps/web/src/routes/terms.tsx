@@ -23,8 +23,9 @@ export default function TermsRoute() {
       <section className="space-y-3">
         <h2 className="text-2xl">Estimates, not records</h2>
         <p className="text-muted">
-          Spending figures are estimates based on current store prices and standard PH VP pack
-          prices. They are not your purchase history and shouldn't be used as financial records.
+          Spending figures are estimates based on current store prices and the standard VP pack
+          prices of the region you choose. They are not your purchase history and shouldn't be used
+          as financial records.
         </p>
       </section>
       <section className="space-y-3">

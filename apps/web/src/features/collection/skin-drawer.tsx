@@ -1,13 +1,13 @@
 import { useState } from "react";
 import type { CatalogSkin } from "@valovertix/assets";
-import { vpToMoneyRange, type OfferIndex, type OwnedSkin, type PricedSkin } from "@valovertix/calc";
+import type { OfferIndex, OwnedSkin, PricedSkin } from "@valovertix/calc";
 import { CURRENCY } from "@valovertix/riot";
 import { Dialog, EstimateTag } from "@/components/ui/primitives";
-import { currencyConfig } from "@/features/data";
+import { usePricing } from "@/features/pricing";
 import { EstimateInfo } from "@/features/spending/estimate-notes";
 import { WishlistButton } from "@/features/wishlist/wishlist-view";
 import { cn } from "@/lib/cn";
-import { fmtMoney, fmtVp } from "@/lib/format";
+import { fmtVp } from "@/lib/format";
 
 type Price = Pick<PricedSkin, "vp" | "source"> | undefined;
 
@@ -68,7 +68,7 @@ function SkinDetail({
   const [video, setVideo] = useState<string | null>(firstVideo);
   const [preview, setPreview] = useState(skin.chromas[0]?.fullRender ?? skin.icon);
 
-  const currency = currencyConfig();
+  const pricing = usePricing();
   const vp = price?.vp;
   const radianite = (id: string) => offers?.get(id)?.[CURRENCY.radianite];
 
@@ -110,10 +110,10 @@ function SkinDetail({
         </div>
         <div>
           <dt className="flex items-center gap-2 text-muted">
-            In pesos <EstimateTag />
+            In {pricing.region.currency} <EstimateTag />
           </dt>
           <dd className="font-display text-xl font-bold">
-            {vp ? fmtMoney(vpToMoneyRange(vp, currency.rate), currency.format) : "Not counted"}
+            {vp ? pricing.fmtValue(vp) : "Not counted"}
           </dd>
         </div>
       </dl>

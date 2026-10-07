@@ -1,4 +1,5 @@
 import { InfoPopover } from "@/components/ui/primitives";
+import { usePricing } from "@/features/pricing";
 
 export const ESTIMATE_LIMITS = [
   "Bundle discounts: skins bought in a bundle usually cost less than their single price.",
@@ -12,6 +13,7 @@ export const ESTIMATE_LIMITS = [
 ] as const;
 
 export function EstimateInfo({ label = "What this can't count" }: { label?: string }) {
+  const pricing = usePricing();
   return (
     <InfoPopover label={label}>
       <p className="font-medium">Every spending figure is an estimate.</p>
@@ -23,7 +25,7 @@ export function EstimateInfo({ label = "What this can't count" }: { label?: stri
           <li key={l}>{l}</li>
         ))}
       </ul>
-      <p className="mt-3">Based on standard PH VP pack prices.</p>
+      <p className="mt-3">Based on {pricing.region.label} VP pack prices.</p>
     </InfoPopover>
   );
 }

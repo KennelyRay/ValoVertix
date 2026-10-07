@@ -2,7 +2,7 @@ import { forwardRef, type CSSProperties, type ReactNode } from "react";
 import type { CatalogSkin, CompetitiveTier, ContentTier, LevelBorder } from "@valovertix/assets";
 import type { MatchSummary, MoneyRange, RankSnapshot, SpendingResult } from "@valovertix/calc";
 import { OFFICIAL_DOMAIN } from "@/config/app";
-import { apiColor, fmtDec, fmtInt, fmtMoney, fmtPct, fmtVp, titleCase } from "@/lib/format";
+import { apiColor, fmtDec, fmtInt, fmtPct, fmtVp, titleCase } from "@/lib/format";
 
 export type Template = "locker" | "collection" | "spending" | "profile" | "rank" | "loadout";
 export const SIZES = {
@@ -51,7 +51,10 @@ export interface CardData {
   tierById: Map<string, ContentTier>;
   spending: SpendingResult<CatalogSkin> | null;
   money: MoneyRange | null;
-  currencyFormat: { locale: string; currency: string };
+  /** Formats money in the chosen pricing region. */
+  formatMoney: (range: MoneyRange) => string;
+  /** e.g. "Philippines" */
+  pricingRegion: string;
   tierPriced: boolean;
   current: RankSnapshot | null;
   peak: { tier: number } | null;
@@ -256,7 +259,8 @@ function Frame({
         >
           <span className="font-semibold text-text">{OFFICIAL_DOMAIN}</span>
           <span>
-            {money ? "Estimate from PH VP pack prices · " : ""}Not affiliated with Riot Games
+            {money ? `Estimate from ${data.pricingRegion} VP pack prices · ` : ""}Not affiliated
+            with Riot Games
           </span>
         </div>
       </div>
@@ -473,7 +477,7 @@ function Spending({ size, data }: { size: SizeKey; data: CardData }) {
           className="display-xl whitespace-nowrap tabular-nums"
           style={{ fontSize: wide ? 80 : 96, marginTop: 12 }}
         >
-          {data.money ? fmtMoney(data.money, data.currencyFormat) : "No estimate"}
+          {data.money ? data.formatMoney(data.money) : "No estimate"}
         </p>
         <p className="text-muted" style={{ fontSize: wide ? 20 : 28, marginTop: 8 }}>
           {sp ? `${fmtVp(sp.totalVp)} across ${fmtInt(sp.priced.length)} skins` : ""}
@@ -680,7 +684,7 @@ function Profile({ size, data }: { size: SizeKey; data: CardData }) {
                   size={size}
                   valueSize={vs}
                   label="Collection value · estimate"
-                  value={fmtMoney(data.money, data.currencyFormat)}
+                  value={data.formatMoney(data.money)}
                 />
               </div>
             )}

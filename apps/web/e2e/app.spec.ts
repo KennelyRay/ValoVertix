@@ -29,7 +29,7 @@ test("demo flow works on every page @mobile", async ({ page }) => {
   await expect(page.getByText(/₱[\d,]+–₱[\d,]+/).first()).toBeVisible({ timeout: 20_000 });
 
   for (const [path, marker] of [
-    ["/spending", "Based on standard PH VP pack prices."],
+    ["/spending", "Based on Philippines VP pack prices."],
     ["/stats", "Peak rank"],
     ["/collection", "Search by name"],
     ["/share", "Download PNG"],

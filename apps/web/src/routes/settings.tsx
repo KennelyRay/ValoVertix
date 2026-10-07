@@ -6,12 +6,14 @@ import { toast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import { Dialog, EmptyNote, Panel, Switch } from "@/components/ui/primitives";
 import { Dropdown } from "@/components/ui/dropdown";
-import { VP_PRICES } from "@/config/vp-prices";
+import { PRICING_REGIONS, regionOptionLabel } from "@/config/pricing";
 import { ExpiryIndicator, accountLabel } from "@/features/auth/account-bar";
 import { forgetAccount } from "@/features/auth/actions";
 import { useSessionStore } from "@/features/auth/session-store";
 import { SignInPanel } from "@/features/auth/sign-in-panel";
+import { resolveRegion, usePricing } from "@/features/pricing";
 import { useSettings } from "@/features/settings-store";
+import { fmtInt } from "@/lib/format";
 import { clearAllData } from "@/lib/clear-data";
 
 function Accounts() {
@@ -117,17 +119,60 @@ function Preferences() {
           label="Reduce motion"
           description="Turns off animations. Your system setting is always respected too."
         />
-        <div className="max-w-xs space-y-2 py-3">
-          <Dropdown
-            label="Currency"
-            value={s.currency}
-            options={(Object.keys(VP_PRICES) as (keyof typeof VP_PRICES)[]).map((code) => ({
-              value: code,
-              label: `${code} (${VP_PRICES[code].symbol})`,
-            }))}
-            onChange={(code) => s.set({ currency: code })}
+      </div>
+    </Panel>
+  );
+}
+
+/** Which region's VP pack prices turn VP into money across the app. */
+function RegionalPricing() {
+  const chosen = useSettings((s) => s.pricingRegion);
+  const set = useSettings((s) => s.set);
+  const pricing = usePricing();
+  const detected = resolveRegion(null);
+  const example = 1775; // a Premium skin
+
+  return (
+    <Panel id="pricing" aria-labelledby="pricing-title" className="scroll-mt-24">
+      <h2 id="pricing-title" className="text-2xl">
+        Regional pricing
+      </h2>
+      <p className="mt-1 max-w-2xl text-sm text-muted">
+        Choose which region's VALORANT Points prices are used to work out your collection value and
+        total spent. Your skins and their VP prices stay the same; only the money changes.
+      </p>
+      <div className="mt-4 grid gap-6 md:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
+        <div className="space-y-2">
+          <Dropdown<string>
+            label="Pricing region"
+            value={chosen ?? "auto"}
+            onChange={(v) => set({ pricingRegion: v === "auto" ? null : v })}
+            options={[
+              { value: "auto", label: `Automatic: ${regionOptionLabel(detected)}` },
+              ...PRICING_REGIONS.map((r) => ({ value: r.id, label: regionOptionLabel(r) })),
+            ]}
           />
-          <p className="text-sm text-muted">Peso is the only currency with pack prices so far.</p>
+          <p className="text-sm text-muted">
+            {chosen
+              ? "Saved on this device."
+              : "Picked from your browser language until you choose one."}
+          </p>
+        </div>
+        <div className="border-l-2 border-accent bg-raised px-4 py-3 text-sm">
+          <p className="font-semibold">{pricing.label}</p>
+          <p className="mt-1 text-muted">
+            Packs:{" "}
+            {pricing.region.packs
+              .map((p) => `${fmtInt(p.vp)} VP ${pricing.fmtAmount(p.price)}`)
+              .join(" · ")}
+          </p>
+          <p className="mt-2">
+            A {fmtInt(example)} VP skin is worth about{" "}
+            <span className="font-semibold">{pricing.fmtValue(example)}</span>, and buying that VP
+            costs at least{" "}
+            <span className="font-semibold">{pricing.fmtAmount(pricing.spent(example).price)}</span>
+            .
+          </p>
         </div>
       </div>
     </Panel>
@@ -185,6 +230,7 @@ export default function SettingsRoute() {
       <PageHeader title="Accounts and settings">Manage what this browser keeps.</PageHeader>
       <div className="reveal-children space-y-6">
         <Accounts />
+        <RegionalPricing />
         <Preferences />
         <DangerZone />
       </div>

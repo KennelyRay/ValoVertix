@@ -7,6 +7,8 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",
   use: {
+    // A Philippine browser, so the default pricing region (from the language) is PHP.
+    locale: "en-PH",
     baseURL: "http://localhost:4173",
     trace: "retain-on-failure",
   },

@@ -5,14 +5,14 @@ import {
   computeSpending,
   indexOffers,
   resolveOwnedSkins,
-  vpToMoneyRange,
+  regionValue,
   formatMoneyRange,
 } from "@valovertix/calc";
 import { buildSkinCatalog, type Contract, type Weapon } from "@valovertix/assets";
 import { CURRENCY, ITEM_TYPE } from "@valovertix/riot";
 import riot from "@/mocks/fixtures/riot.json";
 import staticData from "@/mocks/fixtures/static.json";
-import { VP_PACKS_PHP, vpRate } from "@/config/vp-prices";
+import { getRegionalPricing } from "@/config/pricing";
 import { tierPriceVp } from "@/config/tier-prices";
 import { useSessionStore } from "@/features/auth/session-store";
 import { server } from "./server";
@@ -38,7 +38,7 @@ const expected = computeSpending({
   ),
   currency: { vp: CURRENCY.vp, radianite: CURRENCY.radianite },
 });
-const pesoRange = formatMoneyRange(vpToMoneyRange(expected.totalVp, vpRate(VP_PACKS_PHP)), {
+const pesoRange = formatMoneyRange(regionValue(getRegionalPricing("PHP"), expected.totalVp), {
   locale: "en-PH",
   currency: "PHP",
 });
@@ -217,7 +217,7 @@ describe("signed-in pages", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText(pesoRange)).toBeInTheDocument();
-    expect(screen.getByText("Based on standard PH VP pack prices.")).toBeInTheDocument();
+    expect(screen.getByText(/Based on Philippines VP pack prices./)).toBeInTheDocument();
     expect(
       screen.getByText(`${expected.radianite.toLocaleString("en-PH")} RP`),
     ).toBeInTheDocument();

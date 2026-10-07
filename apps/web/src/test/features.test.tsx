@@ -5,6 +5,7 @@ import { buildSkinCatalog, type Contract, type Weapon } from "@valovertix/assets
 import { buildScoreboard, rankedSession, rankHistory } from "@valovertix/calc";
 import riot from "@/mocks/fixtures/riot.json";
 import staticData from "@/mocks/fixtures/static.json";
+import { useSettings } from "@/features/settings-store";
 import { useWishlist } from "@/features/wishlist/wishlist-store";
 import { server } from "./server";
 import { renderApp, resetApp, signInFixtureAccount } from "./render";
@@ -216,5 +217,42 @@ describe("polish", () => {
     await user.click(screen.getByRole("button", { name: "Refresh" }));
     await waitFor(() => expect(mmrCalls).toBeGreaterThan(before));
     server.events.removeAllListeners();
+  });
+});
+
+describe("regional pricing", () => {
+  it("switching region reprices everything at once and is remembered", async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderApp("/settings");
+    await user.click(
+      await screen.findByRole("combobox", { name: "Pricing region" }, { timeout: 20000 }),
+    );
+    await user.click(screen.getByRole("option", { name: "USA (USD)" }));
+    expect(useSettings.getState().pricingRegion).toBe("USD");
+    expect(JSON.parse(localStorage.getItem("vv.settings")!).state.pricingRegion).toBe("USD");
+    expect(screen.getByText("USA pricing")).toBeInTheDocument();
+    unmount();
+
+    renderApp("/spending");
+    expect(
+      await screen.findByText(/Collection value in USD/, {}, { timeout: 20000 }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Based on USA VP pack prices\./)).toBeInTheDocument();
+    expect(screen.getByText("Total spent")).toBeInTheDocument();
+    expect(screen.getByText(/USA VP packs used for the estimate/)).toBeInTheDocument();
+    // Dollar amounts, never pesos, and the VP total is unchanged.
+    expect(document.body.textContent).toMatch(/\$[\d,]+\.\d\d–\$[\d,]+\.\d\d/);
+    expect(document.body.textContent).not.toContain("₱");
+  });
+
+  it("goes back to automatic", async () => {
+    useSettings.setState({ pricingRegion: "EUR" });
+    const user = userEvent.setup();
+    renderApp("/settings");
+    await user.click(
+      await screen.findByRole("combobox", { name: "Pricing region" }, { timeout: 20000 }),
+    );
+    await user.click(screen.getByRole("option", { name: /^Automatic/ }));
+    expect(useSettings.getState().pricingRegion).toBeNull();
   });
 });

@@ -3,4 +3,5 @@ dist
 coverage
 apps/web/public/mockServiceWorker.js
 apps/web/src/mocks/fixtures/**/*.json
-apps/web/src/config/vp-prices.ts
+# The regional price list is source data; keep it exactly as provided.
+docs/valorant_vp_pricing.json

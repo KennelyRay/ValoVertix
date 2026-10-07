@@ -1,16 +1,16 @@
 import { useState, type ReactNode } from "react";
 import type { CatalogSkin, ContentTier } from "@valovertix/assets";
-import { pricedRatio, vpToMoneyRange, type PricedSkin } from "@valovertix/calc";
+import { Link } from "@tanstack/react-router";
+import { formatMoney, pricedRatio, type PricedSkin } from "@valovertix/calc";
 import { Stagger } from "@/components/motion";
 import { BarList, LoadingBlock, PageHeader, RequireSession } from "@/components/shared";
 import { EstimateTag, ErrorNote, Panel, Switch, Tabs } from "@/components/ui/primitives";
-import { VP_PRICES } from "@/config/vp-prices";
 import { useSpending } from "@/features/data";
 import { useSettings } from "@/features/settings-store";
 import { EstimateInfo, TierPriceNote } from "@/features/spending/estimate-notes";
 import { cn } from "@/lib/cn";
 import { useRememberedTab } from "@/lib/use-remembered-tab";
-import { apiColor, fmtInt, fmtMoney, fmtPct, fmtVp } from "@/lib/format";
+import { apiColor, fmtInt, fmtPct, fmtVp } from "@/lib/format";
 
 type BreakdownTab = "tier" | "weapon" | "theme";
 
@@ -123,7 +123,8 @@ function Spending() {
   const {
     spending,
     money,
-    currency,
+    spent,
+    pricing,
     tierById,
     themeById,
     catalog,
@@ -191,8 +192,8 @@ function Spending() {
             sub: `${b.count}`,
           }));
   const top = spending.priced[0];
-  const packs = VP_PRICES.PHP.packs;
-  const bestPerVp = Math.min(...packs.map((p) => p.price / p.vp));
+  const packs = pricing.region.packs;
+  const bestPerVp = pricing.rate.best;
 
   return (
     <div className="reveal-children space-y-6">
@@ -206,16 +207,32 @@ function Spending() {
           <div>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 id="totals-title" className={cn(EYEBROW, "flex items-center gap-2")}>
-                Estimated total in pesos <EstimateTag />
+                Collection value in {pricing.region.currency} <EstimateTag />
               </h2>
               <EstimateInfo />
             </div>
             <p className="display-xl mt-3 break-words text-5xl tabular-nums sm:text-6xl">
-              {fmtMoney(money, currency.format)}
+              {pricing.fmtRange(money)}
             </p>
             <p className="mt-2 text-sm text-muted">
-              Range: largest-pack rate to smallest-pack rate
+              Range: largest-pack rate to smallest-pack rate · {pricing.label}
             </p>
+            {spent && spent.price > 0 && (
+              <div className="mt-4 border-l-2 border-accent bg-bg/40 px-4 py-3">
+                <p className={cn(EYEBROW, "flex items-center gap-2")}>
+                  Total spent <EstimateTag />
+                </p>
+                <p className="mt-1 font-display text-3xl font-bold tabular-nums">
+                  {pricing.fmtAmount(spent.price)}
+                </p>
+                <p className="mt-1 text-sm text-muted">
+                  The cheapest {pricing.region.label} packs for {fmtVp(spending.totalVp)}:{" "}
+                  {spent.packs.map((p) => `${p.count} × ${fmtInt(p.vp)} VP`).join(" + ")}
+                  {spent.vp > spending.totalVp &&
+                    ` (${fmtInt(spent.vp - spending.totalVp)} VP left over)`}
+                </p>
+              </div>
+            )}
             <dl
               className={cn(
                 "mt-5 grid border-t border-line pt-2",
@@ -297,7 +314,16 @@ function Spending() {
               }
             />
           </div>
-          <p className="pt-3 text-sm text-muted">Based on standard PH VP pack prices.</p>
+          <p className="pt-3 text-sm text-muted">
+            Based on {pricing.region.label} VP pack prices.{" "}
+            <Link
+              to="/settings"
+              hash="pricing"
+              className="text-text underline underline-offset-4 hover:text-accent"
+            >
+              Change region
+            </Link>
+          </p>
         </div>
       </Panel>
 
@@ -403,12 +429,7 @@ function Spending() {
           <Stagger as="ol" className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
             {spending.priced.slice(0, 10).map((p, i) => (
               <Stagger.Item as="li" key={p.owned.skin.uuid} className="flex">
-                <TopSkinCard
-                  p={p}
-                  rank={i + 1}
-                  tier={tierOf(p)}
-                  money={fmtMoney(vpToMoneyRange(p.vp, currency.rate), currency.format)}
-                />
+                <TopSkinCard p={p} rank={i + 1} tier={tierOf(p)} money={pricing.fmtValue(p.vp)} />
               </Stagger.Item>
             ))}
           </Stagger>
@@ -418,11 +439,12 @@ function Spending() {
       <section aria-labelledby="packs-title" className="space-y-3">
         <div>
           <h2 id="packs-title" className="text-3xl">
-            VP packs used for the peso estimate
+            {pricing.region.label} VP packs used for the estimate
           </h2>
           <p className="mt-1 text-sm text-muted">
-            Standard PH store prices captured on 5 October 2026. The low end of the range assumes
-            the largest pack, the high end the smallest.
+            Standard store prices in {pricing.region.currency} from the regional price list. The low
+            end of the value range assumes the largest pack, the high end the smallest; total spent
+            uses the cheapest mix of packs.
           </p>
         </div>
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -444,8 +466,10 @@ function Spending() {
                 )}
                 <p className="font-display text-3xl font-bold tabular-nums">{fmtInt(p.vp)}</p>
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">VP</p>
-                <p className="mt-3 font-semibold tabular-nums">₱{fmtInt(p.price)}</p>
-                <p className="text-xs text-muted tabular-nums">₱{perVp.toFixed(3)} per VP</p>
+                <p className="mt-3 font-semibold tabular-nums">{pricing.fmtAmount(p.price)}</p>
+                <p className="text-xs text-muted tabular-nums">
+                  {formatMoney(perVp * 100, pricing.format)} per 100 VP
+                </p>
               </li>
             );
           })}

@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { CurrencyCode } from "@/config/vp-prices";
 
 export type MotionPreference = "system" | "reduce";
 
@@ -12,7 +11,8 @@ interface SettingsState {
   motion: MotionPreference;
   /** Bundle or map art behind the page. The grid always shows. */
   backdropArt: boolean;
-  currency: CurrencyCode;
+  /** Currency code of the VP price region, or null to follow the browser language. */
+  pricingRegion: string | null;
   showRiotIdOnShare: boolean;
   set: (patch: Partial<Omit<SettingsState, "set">>) => void;
 }
@@ -26,7 +26,7 @@ export const useSettings = create<SettingsState>()(
       includeAgents: false,
       motion: "system",
       backdropArt: true,
-      currency: "PHP",
+      pricingRegion: null,
       showRiotIdOnShare: false,
       set: (patch) => set(patch),
     }),

@@ -5,3 +5,4 @@ export * from "./spending";
 export * from "./stats";
 export * from "./match";
 export * from "./share-link";
+export * from "./regional-pricing";

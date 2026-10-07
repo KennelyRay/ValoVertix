@@ -10,7 +10,6 @@ import { IdentityHeader, PlayerCardShowcase } from "@/features/dashboard/profile
 import { EstimateInfo, TierPriceNote } from "@/features/spending/estimate-notes";
 import { useWishlistHits } from "@/features/wishlist/use-wishlist-hits";
 import { WishlistShopNotice } from "@/features/wishlist/wishlist-view";
-import { formatMoney } from "@valovertix/calc";
 import { apiColor, fmtInt, fmtVp } from "@/lib/format";
 
 function WishlistNotice() {
@@ -69,7 +68,8 @@ function Dashboard() {
     owned,
     spending,
     money,
-    currency,
+    spent,
+    pricing,
     tierById,
     tiers,
     catalog,
@@ -85,7 +85,7 @@ function Dashboard() {
     [owned],
   );
   const weaponName = (id: string) => catalog?.weapons.find((w) => w.uuid === id)?.name ?? "Other";
-  const peso = (n: number) => formatMoney(Math.round(n), currency.format, { wholeUnits: true });
+  const cash = pricing.fmtAmount;
 
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[16.75rem_minmax(0,1fr)]">
@@ -122,26 +122,38 @@ function Dashboard() {
               <LoadingBlock label="Loading your collection" className="mt-4" />
             ) : spending && money ? (
               <>
-                <dl className="mt-3 grid gap-6 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+                <dl className="mt-3 grid gap-6 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)]">
                   <StatTile
                     emphasis
+                    className="sm:col-span-2 xl:col-span-1"
                     label={
                       <span className="inline-flex items-center gap-2">
-                        In pesos <EstimateTag />
+                        Collection value in {pricing.region.currency} <EstimateTag />
                       </span>
                     }
                     value={
                       <>
-                        <CountUp value={money.low} format={peso} />
+                        <CountUp value={money.low} format={cash} />
                         {money.high !== money.low && (
                           <>
-                            –<CountUp value={money.high} format={peso} />
+                            –<CountUp value={money.high} format={cash} />
                           </>
                         )}
                       </>
                     }
                     note="Largest pack rate to smallest pack rate"
                   />
+                  {spent && (
+                    <StatTile
+                      label={
+                        <span className="inline-flex items-center gap-2">
+                          Total spent <EstimateTag />
+                        </span>
+                      }
+                      value={<CountUp value={spent.price} format={cash} />}
+                      note="Cheapest real VP packs for that much VP"
+                    />
+                  )}
                   <StatTile
                     label={
                       <span className="inline-flex items-center gap-2">
@@ -152,7 +164,17 @@ function Dashboard() {
                     note={`${spending.priced.length} priced skins`}
                   />
                 </dl>
-                <p className="mt-4 text-sm text-muted">
+                <p className="mt-4 flex flex-wrap items-center gap-x-2 text-sm">
+                  <span className="font-semibold">{pricing.label}</span>
+                  <Link
+                    to="/settings"
+                    hash="pricing"
+                    className="text-muted underline underline-offset-4 hover:text-accent"
+                  >
+                    Change region
+                  </Link>
+                </p>
+                <p className="mt-2 text-sm text-muted">
                   {priceSource === "tier"
                     ? `${spending.unpriced.length} battle pass and contract skins aren't counted.`
                     : `${spending.unpriced.length} skins have no store price (battle pass, events, exclusives) and aren't counted.`}{" "}

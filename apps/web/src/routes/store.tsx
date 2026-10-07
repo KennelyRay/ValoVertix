@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { indexBy, type CatalogSkin } from "@valovertix/assets";
-import { vpToMoneyRange, type OwnedSkin } from "@valovertix/calc";
+import type { OwnedSkin } from "@valovertix/calc";
 import { CURRENCY, ITEM_TYPE, type Storefront } from "@valovertix/riot";
 import { LoadingBlock, PageHeader, RequireSession } from "@/components/shared";
 import { Button } from "@/components/ui/button";
@@ -8,10 +8,11 @@ import { EmptyNote, ErrorNote, EstimateTag } from "@/components/ui/primitives";
 import { useNow } from "@/features/auth/account-bar";
 import { Stagger } from "@/components/motion";
 import { SkinDrawer } from "@/features/collection/skin-drawer";
-import { currencyConfig, useOwned, useOwnedSkins, useStatic, useStorefront } from "@/features/data";
+import { useOwned, useOwnedSkins, useStatic, useStorefront } from "@/features/data";
 import { useStoreItems, type StoreItem } from "@/features/store/use-store-items";
 import { cn } from "@/lib/cn";
-import { apiColor, fmtMoney, fmtPct, fmtTimeLeft, fmtVp } from "@/lib/format";
+import { usePricing } from "@/features/pricing";
+import { apiColor, fmtPct, fmtTimeLeft, fmtVp } from "@/lib/format";
 import { useWishlistHits } from "@/features/wishlist/use-wishlist-hits";
 import { WishlistShopNotice } from "@/features/wishlist/wishlist-view";
 
@@ -27,8 +28,8 @@ function TimeLeft({ endsAt, label }: { endsAt: number | null; label: string }) {
 }
 
 function Peso({ vp }: { vp: number }) {
-  const c = currencyConfig();
-  return <span className="tabular-nums">{fmtMoney(vpToMoneyRange(vp, c.rate), c.format)}</span>;
+  const pricing = usePricing();
+  return <span className="tabular-nums">{pricing.fmtValue(vp)}</span>;
 }
 
 function ItemArt({ item, className }: { item: StoreItem; className?: string }) {
@@ -350,6 +351,7 @@ function Store() {
     return () => setDrawer({ owned, vp });
   };
   const resolve = useStoreItems();
+  const pricing = usePricing();
   const { hits: wishHits } = useWishlistHits();
   const ownedLevels = useOwned("skinLevel");
   const owned = useMemo(() => new Set(ownedLevels.data ?? []), [ownedLevels.data]);
@@ -389,8 +391,8 @@ function Store() {
     <div className="space-y-12">
       <WishlistShopNotice hits={wishHits} />
       <p className="flex flex-wrap items-center gap-2 text-sm text-muted">
-        VP prices come straight from Riot. Peso amounts are <EstimateTag /> based on standard PH VP
-        pack prices.
+        VP prices come straight from Riot. {pricing.region.currency} amounts are <EstimateTag />{" "}
+        based on {pricing.region.label} VP pack prices.
       </p>
       <Daily {...props} />
       <Bundles {...props} />

@@ -108,8 +108,8 @@ function Hero() {
           transition={{ duration: 0.6, ease: EASE, delay: 0.8 }}
         >
           <p className="mt-6 max-w-lg text-lg text-muted">
-            Every skin you own, an estimate of what it cost in VP and pesos, your daily store, and
-            your rank history. Built for players in the Philippines.
+            Every skin you own, an estimate of what it cost in VP and your currency, your daily
+            store, and your rank history. Priced with real VP packs from 13 regions.
           </p>
           <p className="mt-3 max-w-lg">
             Your Riot password is never entered here. You sign in on Riot's official page, and your
@@ -283,9 +283,10 @@ function Features() {
             </p>
             <h3 className="display-xl mt-3 text-4xl sm:text-5xl">Spending estimate</h3>
             <p className="mt-4 max-w-xl text-muted">
-              Every skin you own priced at Riot's store prices, then converted to pesos using PH VP
-              pack prices. It's shown as a range and labelled as an estimate, with a list of what it
-              can't see: bundle discounts, Night Market deals and gifts.
+              Every skin you own priced at Riot's store prices, then turned into money with your
+              region's real VP pack prices, not exchange rates. It's shown as a range and labelled
+              as an estimate, with a list of what it can't see: bundle discounts, Night Market deals
+              and gifts.
             </p>
           </Panel>
         </Reveal>

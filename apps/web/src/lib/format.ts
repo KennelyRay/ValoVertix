@@ -1,5 +1,3 @@
-import { formatMoneyRange, type MoneyRange } from "@valovertix/calc";
-
 const LOCALE = "en-PH";
 
 export const fmtInt = (n: number) => new Intl.NumberFormat(LOCALE).format(Math.round(n));
@@ -11,9 +9,6 @@ export const fmtDec = (n: number, digits = 2) =>
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   }).format(n);
-
-export const fmtMoney = (range: MoneyRange, format: { locale: string; currency: string }) =>
-  formatMoneyRange(range, format);
 
 /** "mm:ss" under an hour, "h:mm:ss" above, "expired" at zero. */
 export function fmtCountdown(ms: number): string {

@@ -26,7 +26,6 @@ import {
   resolveOwnedSkins,
   skinPriceVp,
   summarizeMatch,
-  vpToMoneyRange,
   type MatchSummary,
   type PriceSource,
 } from "@valovertix/calc";
@@ -40,8 +39,8 @@ import {
 } from "@valovertix/riot";
 import { MATCH_DETAILS_PAGE } from "@/config/app";
 import { tierPriceVp } from "@/config/tier-prices";
-import { DEFAULT_CURRENCY, VP_PRICES, vpRate } from "@/config/vp-prices";
 import { riotKey } from "@/lib/query-client";
+import { usePricing } from "./pricing";
 import { useSettings } from "./settings-store";
 import { useActiveSession, useSessionStore, type Session } from "./auth/session-store";
 
@@ -200,16 +199,6 @@ export function useOwnedSkins() {
   };
 }
 
-export const currencyConfig = () => {
-  const cfg = VP_PRICES[DEFAULT_CURRENCY];
-  return {
-    code: DEFAULT_CURRENCY,
-    ...cfg,
-    rate: vpRate(cfg.packs),
-    format: { locale: cfg.locale, currency: DEFAULT_CURRENCY },
-  };
-};
-
 export function useSpending() {
   const includeAgents = useSettings((s) => s.includeAgents);
   const skins = useOwnedSkins();
@@ -279,13 +268,18 @@ export function useSpending() {
     [priceIndex, priceSource, fallbackVp],
   );
 
-  const currency = currencyConfig();
-  const money = result ? vpToMoneyRange(result.totalVp, currency.rate) : null;
+  // Money comes from the regional pricing preference; VP amounts never change with it.
+  const pricing = usePricing();
+  const money = useMemo(() => (result ? pricing.value(result.totalVp) : null), [result, pricing]);
+  const spent = useMemo(() => (result ? pricing.spent(result.totalVp) : null), [result, pricing]);
   return {
     ...skins,
     spending: result,
+    /** Collection value in the chosen region, as a range. */
     money,
-    currency,
+    /** Total spent: the cheapest real packs in the chosen region for all that VP. */
+    spent,
+    pricing,
     offerIndex: useMemo(() => (offers.data ? indexOffers(offers.data) : null), [offers.data]),
     priceSource,
     priceOf,

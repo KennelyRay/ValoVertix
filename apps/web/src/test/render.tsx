@@ -36,6 +36,8 @@ export function resetApp() {
     motion: "system",
     backdropArt: true,
     showRiotIdOnShare: false,
+    // Fixed so peso expectations don't depend on the test machine's language.
+    pricingRegion: "PHP",
   });
   useWishlist.setState({ ids: [] });
   // Remembered tabs would leak between tests.
