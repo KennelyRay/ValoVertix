@@ -51,3 +51,30 @@ export function countBy<T>(
 /** Owned upgrades beyond the base level and base chroma. */
 export const upgradeCount = (owned: OwnedSkin) =>
   Math.max(0, owned.levelIds.length - 1) + owned.chromaIds.length;
+
+export interface CollectionGroup<S extends SkinRef> {
+  themeId: string;
+  /** Every non-default skin in the collection, owned or not. */
+  skins: S[];
+  owned: OwnedSkin<S>[];
+}
+
+/**
+ * Groups skins into their collections (themes), for every collection the
+ * player owns at least one skin from, with owned vs total counts.
+ */
+export function groupByCollection<S extends SkinRef>(
+  allSkins: readonly S[],
+  owned: readonly OwnedSkin<S>[],
+): CollectionGroup<S>[] {
+  const ownedByTheme = new Map<string, OwnedSkin<S>[]>();
+  for (const o of owned) {
+    if (!o.skin.themeId) continue;
+    ownedByTheme.set(o.skin.themeId, [...(ownedByTheme.get(o.skin.themeId) ?? []), o]);
+  }
+  return [...ownedByTheme.entries()].map(([themeId, ownedSkins]) => ({
+    themeId,
+    skins: allSkins.filter((s) => s.themeId === themeId && !s.isDefault),
+    owned: ownedSkins,
+  }));
+}

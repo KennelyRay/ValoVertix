@@ -1,6 +1,7 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Clock } from "lucide-react";
+import { Dropdown } from "@/components/ui/dropdown";
 import { cn } from "@/lib/cn";
 import { fmtCountdown } from "@/lib/format";
 import { useActiveSession, useSessionStore, type Session } from "./session-store";
@@ -46,7 +47,6 @@ export function AccountSwitcher() {
   const sessions = useSessionStore((s) => s.sessions);
   const setActive = useSessionStore((s) => s.setActive);
   const active = useActiveSession();
-  const id = useId();
   if (!active) return null;
   if (sessions.length < 2) {
     return (
@@ -56,22 +56,14 @@ export function AccountSwitcher() {
     );
   }
   return (
-    <div className="min-w-0">
-      <label htmlFor={id} className="sr-only">
-        Active account
-      </label>
-      <select
-        id={id}
-        value={active.id}
-        onChange={(e) => setActive(e.target.value)}
-        className="min-h-11 max-w-48 truncate border border-line-strong bg-raised px-2 text-sm"
-      >
-        {sessions.map((s) => (
-          <option key={s.id} value={s.id}>
-            {accountLabel(s)}
-          </option>
-        ))}
-      </select>
-    </div>
+    <Dropdown
+      label="Active account"
+      hideLabel
+      size="sm"
+      className="w-52"
+      value={active.id}
+      options={sessions.map((s) => ({ value: s.id, label: accountLabel(s) }))}
+      onChange={setActive}
+    />
   );
 }

@@ -161,6 +161,21 @@ describe("pd client", () => {
     expect(offers.map((o) => o.OfferID)).toEqual(["a"]);
   });
 
+  it("passes cancellation during the body read through, without reporting drift", async () => {
+    const drift = vi.fn();
+    const off = onSchemaDrift(drift);
+    const f = vi.fn(async () => {
+      const res = new Response("{}", { status: 200 });
+      vi.spyOn(res, "json").mockRejectedValue(new DOMException("aborted", "AbortError"));
+      return res;
+    });
+    await expect(createRiotClient(session, f).offers()).rejects.toMatchObject({
+      name: "AbortError",
+    });
+    off();
+    expect(drift).not.toHaveBeenCalled();
+  });
+
   it("treats invalid JSON as schema drift", async () => {
     const f = vi.fn(async () => new Response("<html>maintenance</html>", { status: 200 }));
     await expect(createRiotClient(session, f).offers()).rejects.toMatchObject({ kind: "schema" });

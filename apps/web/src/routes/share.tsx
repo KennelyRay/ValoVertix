@@ -1,31 +1,141 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useDeferredValue, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { CatalogSkin } from "@valovertix/assets";
+import { indexBy } from "@valovertix/assets";
+import { countBy } from "@valovertix/calc";
 import { PageHeader, RequireSession } from "@/components/shared";
 import { toast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
-import { Panel, Switch } from "@/components/ui/primitives";
+import { Dropdown } from "@/components/ui/dropdown";
+import { Dialog, Panel, Switch } from "@/components/ui/primitives";
 import { useActiveSession } from "@/features/auth/session-store";
-import { useLoadout, useMatchStats, useRanks, useSpending, useStatic } from "@/features/data";
+import { useProfile } from "@/features/dashboard/profile";
+import { useMatchStats, useRanks, useSpending, useStatic, useStorefront } from "@/features/data";
 import { useSettings } from "@/features/settings-store";
 import {
   SIZES,
+  SKIN_SLOTS,
   ShareCard,
   type CardData,
+  type CardSkin,
   type SizeKey,
   type Template,
 } from "@/features/share/cards";
 import { downloadBlob, exportPng } from "@/features/share/export";
 import { cn } from "@/lib/cn";
 
-const TEMPLATES: { id: Template; label: string }[] = [
-  { id: "spending", label: "Spending summary" },
-  { id: "collection", label: "Collection showcase" },
-  { id: "rank", label: "Rank card" },
+const TEMPLATES: { id: Template; label: string; text: string }[] = [
+  { id: "locker", label: "Locker", text: "Your best skins in a grid" },
+  { id: "spending", label: "Spending", text: "Estimated value and top skins" },
+  { id: "profile", label: "Profile", text: "Player card, rank and stats" },
+  { id: "rank", label: "Rank", text: "Rank, RR and recent results" },
 ];
+
+type SkinMode = "value" | "tier" | "picked";
+type Background = "card" | "bundle" | "none";
+
+function SkinPicker({
+  open,
+  onClose,
+  skins,
+  picked,
+  setPicked,
+  limit,
+}: {
+  open: boolean;
+  onClose: () => void;
+  skins: CatalogSkin[];
+  picked: string[];
+  setPicked: (ids: string[]) => void;
+  limit: number;
+}) {
+  const [query, setQuery] = useState("");
+  const q = useDeferredValue(query.trim().toLowerCase());
+  const id = useId();
+  const visible = skins.filter((s) => !q || s.name.toLowerCase().includes(q));
+  const toggle = (uuid: string) => {
+    if (picked.includes(uuid)) setPicked(picked.filter((p) => p !== uuid));
+    else if (picked.length < limit) setPicked([...picked, uuid]);
+  };
+  return (
+    <Dialog side open={open} onClose={onClose} title="Choose skins">
+      <div className="space-y-4">
+        <p className="text-sm text-muted" aria-live="polite">
+          {picked.length} of {limit} picked. They appear on the card in the order you pick them.
+        </p>
+        <div>
+          <label
+            htmlFor={id}
+            className="mb-1 block font-display text-xs font-semibold uppercase tracking-[0.08em] text-muted"
+          >
+            Search your skins
+          </label>
+          <input
+            id={id}
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Skin name, e.g. Reaver"
+            className="min-h-11 w-full border border-line-strong bg-bg/70 px-3 placeholder:text-faint"
+          />
+        </div>
+        <ul className="grid grid-cols-2 gap-2">
+          {visible.map((s) => {
+            const index = picked.indexOf(s.uuid);
+            const on = index >= 0;
+            const full = !on && picked.length >= limit;
+            return (
+              <li key={s.uuid}>
+                <button
+                  type="button"
+                  aria-pressed={on}
+                  disabled={full}
+                  onClick={() => toggle(s.uuid)}
+                  className={cn(
+                    "relative flex h-full w-full flex-col items-center gap-1 border p-2 text-center text-xs transition-colors",
+                    on ? "border-accent bg-accent/10" : "border-line hover:border-line-strong",
+                    full && "opacity-40",
+                  )}
+                >
+                  {on && (
+                    <span className="absolute left-1.5 top-1.5 grid size-6 place-items-center bg-accent font-display text-sm font-bold text-accent-ink">
+                      {index + 1}
+                    </span>
+                  )}
+                  {s.icon && (
+                    <img
+                      src={s.icon}
+                      alt=""
+                      loading="lazy"
+                      className="h-12 w-full object-contain"
+                    />
+                  )}
+                  <span className="line-clamp-2">{s.name}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="sticky bottom-0 flex gap-2 border-t border-line bg-surface py-3">
+          <Button variant="primary" onClick={onClose}>
+            Done
+          </Button>
+          <Button variant="ghost" onClick={() => setPicked([])} disabled={picked.length === 0}>
+            Clear
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
 
 function Share() {
   const session = useActiveSession()!;
-  const [template, setTemplate] = useState<Template>("spending");
+  const [template, setTemplate] = useState<Template>("locker");
   const [size, setSize] = useState<SizeKey>("square");
+  const [background, setBackground] = useState<Background>("card");
+  const [mode, setMode] = useState<SkinMode>("value");
+  const [picked, setPicked] = useState<string[]>([]);
+  const [picking, setPicking] = useState(false);
   const showRiotId = useSettings((s) => s.showRiotIdOnShare);
   const setSettings = useSettings((s) => s.set);
   const [busy, setBusy] = useState(false);
@@ -36,39 +146,115 @@ function Share() {
   const sp = useSpending();
   const ranks = useRanks();
   const matches = useMatchStats(10);
-  const loadout = useLoadout();
-  const cards = useStatic("playerCards");
-  const art =
-    cards.data?.find((c) => c.uuid.toLowerCase() === loadout.data?.PlayerCardID.toLowerCase())
-      ?.wideArt ?? null;
+  const profile = useProfile();
+  const storefront = useStorefront(true);
+  const bundles = useStatic("bundles", Boolean(storefront.data?.bundles.length));
 
   const dims = SIZES[size];
+  const slots = SKIN_SLOTS[template][size];
+
   useLayoutEffect(() => {
     const el = frameRef.current;
     if (!el) return;
-    const update = () => setScale(Math.min(1, el.clientWidth / dims.w, 640 / dims.h));
+    const update = () => setScale(Math.min(1, el.clientWidth / dims.w, 680 / dims.h));
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
   }, [dims.w, dims.h]);
 
+  const priceBySkin = useMemo(
+    () => new Map(sp.spending?.priced.map((p) => [p.owned.skin.uuid, p.vp]) ?? []),
+    [sp.spending],
+  );
+
+  // Skins a player would want to show: tiered, not battle pass freebies.
+  const showable = useMemo(
+    () => (sp.owned ?? []).map((o) => o.skin).filter((s) => s.tierId && !s.isContractReward),
+    [sp.owned],
+  );
+
+  const cardSkins = useMemo<CardSkin[]>(() => {
+    if (slots === 0) return [];
+    const tierRank = (s: CatalogSkin) => (s.tierId ? (sp.tierById.get(s.tierId)?.rank ?? -1) : -1);
+    const price = (s: CatalogSkin) => priceBySkin.get(s.uuid);
+    const byId = new Map(showable.map((s) => [s.uuid, s]));
+    let list: CatalogSkin[];
+    if (mode === "picked" && picked.length) {
+      list = picked.map((id) => byId.get(id)).filter((s): s is CatalogSkin => Boolean(s));
+    } else if (mode === "tier") {
+      list = [...showable].sort(
+        (a, b) => tierRank(b) - tierRank(a) || (price(b) ?? 0) - (price(a) ?? 0),
+      );
+    } else {
+      list = [...showable].sort(
+        (a, b) => (price(b) ?? -1) - (price(a) ?? -1) || tierRank(b) - tierRank(a),
+      );
+    }
+    return list.slice(0, slots).map((skin) => ({ skin, vp: price(skin) }));
+  }, [slots, showable, mode, picked, priceBySkin, sp.tierById]);
+
+  const tierCounts = useMemo(() => {
+    const counts = countBy(sp.owned ?? [], (o) => o.skin.tierId);
+    return [...sp.tiers]
+      .sort((a, b) => b.rank - a.rank)
+      .map((tier) => ({ tier, count: counts.get(tier.uuid.toLowerCase()) ?? 0 }))
+      .filter((t) => t.count > 0);
+  }, [sp.owned, sp.tiers]);
+
+  const bundleArt = useMemo(() => {
+    const index = indexBy(bundles.data ?? []);
+    const first = storefront.data?.bundles[0];
+    return first ? (index.get(first.dataAssetId)?.displayIcon ?? null) : null;
+  }, [bundles.data, storefront.data]);
+
+  const cardArt = (variant: "tall" | "wide") => {
+    const fromCatalog = variant === "tall" ? profile.card?.largeArt : profile.card?.wideArt;
+    const file = variant === "tall" ? "largeart" : "wideart";
+    return (
+      fromCatalog ??
+      (profile.cardId
+        ? `https://media.valorant-api.com/playercards/${profile.cardId}/${file}.png`
+        : null)
+    );
+  };
+
+  const recent = useMemo(
+    () => [...matches.details.summaries].sort((a, b) => b.startedAt - a.startedAt).slice(0, 10),
+    [matches.details.summaries],
+  );
+
   const data: CardData = {
     riotId:
       showRiotId && session.riotId ? `${session.riotId.gameName}#${session.riotId.tagLine}` : null,
+    title: showRiotId ? (profile.title?.titleText ?? null) : null,
+    level: profile.level ?? null,
+    levelBorder: profile.border,
+    cardArtTall: cardArt("tall"),
+    background:
+      background === "card"
+        ? cardArt(size === "story" ? "tall" : "wide")
+        : background === "bundle"
+          ? bundleArt
+          : null,
+    skins: cardSkins,
+    totalSkins: sp.owned?.length ?? 0,
+    tierCounts,
+    tierById: sp.tierById,
     spending: sp.spending,
     money: sp.money,
-    priceSource: sp.priceSource,
     currencyFormat: sp.currency.format,
-    totalSkins: sp.owned?.length ?? 0,
-    tierById: sp.tierById,
+    tierPriced: sp.priceSource === "tier",
     current: ranks.current,
     peak: ranks.peak,
     tiers: ranks.tiers,
-    aggregate: matches.aggregate.games ? matches.aggregate : null,
-    cardArt: art,
+    recent,
   };
-  const ready = template === "rank" ? !ranks.mmr.isPending : Boolean(sp.spending);
+
+  const ready =
+    template === "rank" || template === "profile"
+      ? !ranks.mmr.isPending
+      : Boolean(sp.owned && sp.spending);
 
   async function onExport() {
     const node = cardRef.current?.querySelector<HTMLElement>("[data-share-card] > div");
@@ -86,58 +272,106 @@ function Share() {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
-      <Panel aria-label="Card options" className="h-fit space-y-5">
+    <div className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
+      <Panel aria-label="Card options" className="h-fit space-y-6 lg:sticky lg:top-20">
         <fieldset>
-          <legend className="mb-2 font-display text-lg font-semibold">Template</legend>
-          <div className="space-y-1">
+          <legend className="mb-2 font-display text-xs font-semibold uppercase tracking-[0.08em] text-muted">
+            Template
+          </legend>
+          <div className="grid grid-cols-2 gap-2">
             {TEMPLATES.map((t) => (
-              <label key={t.id} className="flex min-h-11 cursor-pointer items-center gap-3">
+              <label
+                key={t.id}
+                className={cn(
+                  "relative flex min-h-16 cursor-pointer flex-col justify-center border px-3 py-2 transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-text",
+                  template === t.id
+                    ? "border-accent bg-accent/10"
+                    : "border-line-strong hover:border-muted",
+                )}
+              >
                 <input
                   type="radio"
                   name="template"
                   value={t.id}
                   checked={template === t.id}
                   onChange={() => setTemplate(t.id)}
-                  className="size-5 accent-[var(--color-accent)]"
+                  className="sr-only"
                 />
-                {t.label}
+                {template === t.id && (
+                  <span aria-hidden className="absolute inset-y-2 left-0 w-[3px] bg-accent" />
+                )}
+                <span className="font-display text-lg font-bold uppercase leading-tight">
+                  {t.label}
+                </span>
+                <span className="text-xs text-muted">{t.text}</span>
               </label>
             ))}
           </div>
         </fieldset>
-        <fieldset>
-          <legend className="mb-2 font-display text-lg font-semibold">Size</legend>
-          <div className="space-y-1">
-            {(Object.keys(SIZES) as SizeKey[]).map((k) => (
-              <label key={k} className="flex min-h-11 cursor-pointer items-center gap-3">
-                <input
-                  type="radio"
-                  name="size"
-                  value={k}
-                  checked={size === k}
-                  onChange={() => setSize(k)}
-                  className="size-5 accent-[var(--color-accent)]"
-                />
-                {SIZES[k].label}
-              </label>
-            ))}
+
+        <Dropdown<SizeKey>
+          label="Size"
+          value={size}
+          onChange={setSize}
+          options={(Object.keys(SIZES) as SizeKey[]).map((k) => ({
+            value: k,
+            label: SIZES[k].label,
+          }))}
+        />
+
+        <Dropdown<Background>
+          label="Background"
+          value={background}
+          onChange={setBackground}
+          options={[
+            { value: "card", label: "My player card" },
+            ...(bundleArt ? [{ value: "bundle" as const, label: "Featured bundle art" }] : []),
+            { value: "none", label: "Grid only" },
+          ]}
+        />
+
+        {slots > 0 && (
+          <div className="space-y-2">
+            <Dropdown<SkinMode>
+              label={`Skins on the card (${slots})`}
+              value={mode}
+              onChange={(m) => {
+                setMode(m);
+                if (m === "picked" && picked.length === 0) setPicking(true);
+              }}
+              options={[
+                { value: "value", label: "Most valuable" },
+                { value: "tier", label: "Highest tier" },
+                {
+                  value: "picked",
+                  label: "Picked by me",
+                  ...(picked.length ? { hint: `${picked.length}` } : {}),
+                },
+              ]}
+            />
+            {mode === "picked" && (
+              <Button size="sm" onClick={() => setPicking(true)}>
+                {picked.length ? `Change picks (${picked.length})` : "Choose skins"}
+              </Button>
+            )}
           </div>
-        </fieldset>
+        )}
+
         <Switch
           checked={showRiotId}
           onChange={(v) => setSettings({ showRiotIdOnShare: v })}
-          label="Show my Riot ID"
+          label="Show my Riot ID and title"
           description="Off by default. Your account ID and token are never on the image."
         />
-        <Button
-          variant="primary"
-          className="w-full"
+
+        <button
+          type="button"
+          className="btn-valo btn-valo-primary w-full"
           disabled={busy || !ready}
           onClick={() => void onExport()}
         >
           {busy ? "Creating PNG…" : !ready ? "Loading data…" : "Download PNG"}
-        </Button>
+        </button>
       </Panel>
 
       <div ref={frameRef} className="min-w-0">
@@ -145,7 +379,7 @@ function Share() {
           Preview at {Math.round(scale * 100)}%. The download is {dims.w} × {dims.h} pixels.
         </p>
         <div
-          className={cn("relative overflow-hidden border border-line")}
+          className="relative overflow-hidden border border-line"
           style={{ width: dims.w * scale, height: dims.h * scale }}
         >
           <div
@@ -161,6 +395,15 @@ function Share() {
           </div>
         </div>
       </div>
+
+      <SkinPicker
+        open={picking}
+        onClose={() => setPicking(false)}
+        skins={showable}
+        picked={picked}
+        setPicked={setPicked}
+        limit={slots || 15}
+      />
     </div>
   );
 }
@@ -169,7 +412,7 @@ export default function ShareRoute() {
   return (
     <RequireSession title="Share card">
       <PageHeader title="Share card">
-        Make a PNG of your spending, collection or rank to post anywhere.
+        Make a PNG of your locker, spending, profile or rank to post anywhere.
       </PageHeader>
       <Share />
     </RequireSession>

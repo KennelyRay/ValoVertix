@@ -14,6 +14,7 @@ import { SignInPanel } from "@/features/auth/sign-in-panel";
 import { cn } from "@/lib/cn";
 import { Button } from "./ui/button";
 import { Dialog } from "./ui/primitives";
+import { Dropdown } from "./ui/dropdown";
 
 interface Failure {
   endpoint: string;
@@ -167,23 +168,18 @@ function RegionFix({ sessionId, current }: { sessionId: string; current: Shard }
   const setShard = useSessionStore((s) => s.setShard);
   const client = useQueryClient();
   return (
-    <label className="flex items-center gap-2">
-      <span className="sr-only">Switch region</span>
-      <select
-        value={current}
-        onChange={(e) => {
-          setShard(sessionId, e.target.value as Shard);
-          void client.invalidateQueries({ queryKey: ["riot", sessionId] });
-        }}
-        className="min-h-11 border border-line-strong bg-raised px-2"
-      >
-        {SHARDS.map((s) => (
-          <option key={s} value={s}>
-            {SHARD_LABELS[s]}
-          </option>
-        ))}
-      </select>
-    </label>
+    <Dropdown
+      label="Switch region"
+      hideLabel
+      size="sm"
+      className="w-56"
+      value={current}
+      options={SHARDS.map((s) => ({ value: s, label: SHARD_LABELS[s] }))}
+      onChange={(shard) => {
+        setShard(sessionId, shard);
+        void client.invalidateQueries({ queryKey: ["riot", sessionId] });
+      }}
+    />
   );
 }
 

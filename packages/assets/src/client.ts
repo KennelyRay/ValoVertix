@@ -50,7 +50,14 @@ async function getJson<S extends z.ZodType>(
     throw new StaticDataError(resource, "network");
   }
   if (!res.ok) throw new StaticDataError(resource, "http");
-  const parsed = schema.safeParse(await res.json().catch(() => null));
+  let body: unknown = null;
+  try {
+    body = await res.json();
+  } catch (err) {
+    // A request cancelled mid-download is not a broken response.
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
+  }
+  const parsed = schema.safeParse(body);
   if (!parsed.success) {
     reportDrift(sanitizeIssues(`static.${resource}`, parsed.error.issues));
     throw new StaticDataError(resource, "schema");

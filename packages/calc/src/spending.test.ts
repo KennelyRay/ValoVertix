@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { countBy, indexOffers, resolveOwnedSkins, upgradeCount } from "./collection";
+import {
+  countBy,
+  groupByCollection,
+  indexOffers,
+  resolveOwnedSkins,
+  upgradeCount,
+} from "./collection";
 import { AGENT_UNLOCK_VP, computeSpending, pricedRatio, radianiteForSkin } from "./spending";
 import type { SkinRef } from "./types";
 
@@ -211,5 +217,24 @@ describe("computeSpending", () => {
     });
     expect(r.priced.map((p) => p.owned.skin.name)).toEqual(["Alpha", "Beta"]);
     expect(r.unpriced).toHaveLength(1);
+  });
+});
+
+describe("groupByCollection", () => {
+  it("groups owned skins with every skin in their collection", () => {
+    const all = [
+      skin("a1", { themeId: "reaver" }),
+      skin("a2", { themeId: "reaver" }),
+      skin("a3", { themeId: "reaver" }),
+      skin("b1", { themeId: "prime" }),
+      skin("d", { themeId: "reaver", isDefault: true }),
+      skin("n", { themeId: null }),
+    ];
+    const owned = resolveOwnedSkins(all, ["a1-l1", "a3-l1", "n-l1"], []);
+    const groups = groupByCollection(all, owned);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]!.themeId).toBe("reaver");
+    expect(groups[0]!.skins.map((s) => s.uuid)).toEqual(["a1", "a2", "a3"]);
+    expect(groups[0]!.owned.map((o) => o.skin.uuid)).toEqual(["a1", "a3"]);
   });
 });

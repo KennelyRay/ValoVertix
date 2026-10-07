@@ -74,7 +74,9 @@ test("exports a PNG at the chosen size", async ({ page }) => {
   await page.goto("/?demo=1");
   await expect(page.getByText("Estimated collection value")).toBeVisible({ timeout: 20_000 });
   await page.getByRole("link", { name: "Share card" }).first().click();
-  await page.getByLabel("Link preview 1200 × 630").check();
+  await page.getByText("Estimated value and top skins").click();
+  await page.getByRole("combobox", { name: "Size" }).click();
+  await page.getByRole("option", { name: "Link preview 1200 × 630" }).click();
   const button = page.getByRole("button", { name: "Download PNG" });
   await expect(button).toBeEnabled({ timeout: 20_000 });
   const [download] = await Promise.all([page.waitForEvent("download"), button.click()]);

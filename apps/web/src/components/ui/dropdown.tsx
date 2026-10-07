@@ -1,0 +1,243 @@
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
+import { AnimatePresence, m } from "framer-motion";
+import { Check, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/cn";
+
+export interface DropdownOption<T extends string> {
+  value: T;
+  label: string;
+  /** Optional secondary text, e.g. a count. */
+  hint?: ReactNode;
+}
+
+/**
+ * A select-only combobox (WAI-ARIA APG pattern) styled after the game's
+ * menus: a squared field, a red bar marking the chosen option and a short
+ * open animation. Keyboard: Enter/Space/Arrow keys open; arrows, Home and
+ * End move; typing jumps to an option; Enter selects; Escape or Tab closes.
+ */
+export function Dropdown<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+  hideLabel = false,
+  className,
+  size = "md",
+}: {
+  label: string;
+  value: T;
+  options: readonly DropdownOption<T>[];
+  onChange: (value: T) => void;
+  hideLabel?: boolean;
+  className?: string;
+  size?: "sm" | "md";
+}) {
+  const id = useId();
+  const labelId = `${id}-label`;
+  const listId = `${id}-list`;
+  const trigger = useRef<HTMLButtonElement>(null);
+  const root = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const [upward, setUpward] = useState(false);
+  const typed = useRef({ text: "", at: 0 });
+
+  const selectedIndex = Math.max(
+    0,
+    options.findIndex((o) => o.value === value),
+  );
+  const selected = options[selectedIndex];
+
+  const openList = (index = selectedIndex) => {
+    setActive(index);
+    setOpen(true);
+  };
+  const choose = (index: number) => {
+    const option = options[index];
+    if (option) onChange(option.value);
+    setOpen(false);
+    trigger.current?.focus();
+  };
+
+  // Open upward when there isn't room below (e.g. near the bottom of a dialog).
+  useLayoutEffect(() => {
+    if (!open || !trigger.current) return;
+    const r = trigger.current.getBoundingClientRect();
+    const below = window.innerHeight - r.bottom;
+    setUpward(below < 280 && r.top > below);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (!root.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [open]);
+
+  // Keep the active option in view while moving with the keyboard.
+  useEffect(() => {
+    if (open)
+      document.getElementById(`${id}-opt-${active}`)?.scrollIntoView?.({ block: "nearest" });
+  }, [open, active, id]);
+
+  const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
+    const last = options.length - 1;
+    if (!open) {
+      if (["Enter", " ", "ArrowDown", "ArrowUp"].includes(e.key)) {
+        e.preventDefault();
+        openList(e.key === "ArrowUp" ? Math.max(0, selectedIndex - 1) : selectedIndex);
+      }
+      return;
+    }
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setActive((i) => Math.min(last, i + 1));
+        return;
+      case "ArrowUp":
+        e.preventDefault();
+        setActive((i) => Math.max(0, i - 1));
+        return;
+      case "Home":
+        e.preventDefault();
+        setActive(0);
+        return;
+      case "End":
+        e.preventDefault();
+        setActive(last);
+        return;
+      case "Enter":
+      case " ":
+        e.preventDefault();
+        choose(active);
+        return;
+      case "Escape":
+        e.preventDefault();
+        setOpen(false);
+        return;
+      case "Tab":
+        setOpen(false);
+        return;
+    }
+    // Typeahead: jump to the next option starting with what was typed.
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const now = Date.now();
+      typed.current.text = now - typed.current.at > 600 ? e.key : typed.current.text + e.key;
+      typed.current.at = now;
+      const q = typed.current.text.toLowerCase();
+      const order = [...options.keys()].map((k) => (active + 1 + k) % options.length);
+      const hit = order.find((k) => options[k]!.label.toLowerCase().startsWith(q));
+      if (hit !== undefined) setActive(hit);
+    }
+  };
+
+  return (
+    <div ref={root} className={cn("relative min-w-0", className)}>
+      <span
+        id={labelId}
+        className={cn(
+          "mb-1 block font-display text-xs font-semibold uppercase tracking-[0.08em] text-muted",
+          hideLabel && "sr-only",
+        )}
+      >
+        {label}
+      </span>
+      <button
+        ref={trigger}
+        type="button"
+        role="combobox"
+        aria-labelledby={labelId}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={listId}
+        aria-activedescendant={open ? `${id}-opt-${active}` : undefined}
+        onClick={() => (open ? setOpen(false) : openList())}
+        onKeyDown={onKeyDown}
+        className={cn(
+          "group relative flex w-full items-center justify-between gap-2 border bg-bg/70 pl-3 pr-2 text-left transition-colors",
+          size === "sm" ? "min-h-11 text-sm" : "min-h-11",
+          open ? "border-text" : "border-line-strong hover:border-muted",
+        )}
+      >
+        {/* Red notch on the left edge while open. */}
+        <span
+          aria-hidden
+          className={cn(
+            "absolute inset-y-0 left-0 w-[3px] bg-accent transition-transform duration-200",
+            open ? "scale-y-100" : "scale-y-0",
+          )}
+        />
+        <span className="min-w-0 truncate">{selected?.label ?? "Choose"}</span>
+        <ChevronDown
+          aria-hidden
+          className={cn(
+            "size-4 shrink-0 text-muted transition-transform duration-200",
+            open && "rotate-180 text-text",
+          )}
+        />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <m.ul
+            id={listId}
+            role="listbox"
+            aria-labelledby={labelId}
+            initial={{ opacity: 0, y: upward ? 6 : -6, scaleY: 0.96 }}
+            animate={{ opacity: 1, y: 0, scaleY: 1 }}
+            exit={{ opacity: 0, y: upward ? 4 : -4, transition: { duration: 0.1 } }}
+            transition={{ duration: 0.16, ease: [0.2, 0.8, 0.2, 1] }}
+            style={{ transformOrigin: upward ? "bottom" : "top" }}
+            className={cn(
+              "absolute left-0 right-0 z-40 max-h-72 overflow-y-auto border border-line-strong bg-raised py-1 shadow-2xl shadow-black/60",
+              upward ? "bottom-full mb-1" : "top-full mt-1",
+            )}
+          >
+            {options.map((o, i) => {
+              const isSelected = o.value === value;
+              return (
+                <li
+                  key={o.value}
+                  id={`${id}-opt-${i}`}
+                  role="option"
+                  aria-selected={isSelected}
+                  onPointerEnter={() => setActive(i)}
+                  // Pointer down (not click) so the trigger keeps focus.
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    choose(i);
+                  }}
+                  className={cn(
+                    "relative flex min-h-11 cursor-pointer items-center gap-2 px-3 text-sm",
+                    i === active ? "bg-line text-text" : "text-muted",
+                    isSelected && "font-semibold text-text",
+                  )}
+                >
+                  {isSelected && (
+                    <span aria-hidden className="absolute inset-y-1.5 left-0 w-[3px] bg-accent" />
+                  )}
+                  <span className="min-w-0 flex-1 truncate">{o.label}</span>
+                  {o.hint !== undefined && (
+                    <span className="shrink-0 text-xs text-muted">{o.hint}</span>
+                  )}
+                  {isSelected && <Check aria-hidden className="size-4 shrink-0 text-accent" />}
+                </li>
+              );
+            })}
+          </m.ul>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

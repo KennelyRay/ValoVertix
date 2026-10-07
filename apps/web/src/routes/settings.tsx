@@ -5,6 +5,7 @@ import { DemoButton, PageHeader } from "@/components/shared";
 import { toast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import { Dialog, EmptyNote, Panel, Switch } from "@/components/ui/primitives";
+import { Dropdown } from "@/components/ui/dropdown";
 import { VP_PRICES } from "@/config/vp-prices";
 import { ExpiryIndicator, accountLabel } from "@/features/auth/account-bar";
 import { forgetAccount } from "@/features/auth/actions";
@@ -110,23 +111,17 @@ function Preferences() {
           label="Reduce motion"
           description="Turns off animations. Your system setting is always respected too."
         />
-        <div className="py-2">
-          <label htmlFor="currency" className="font-medium">
-            Currency
-          </label>
-          <p className="text-sm text-muted">Peso is the only currency with pack prices so far.</p>
-          <select
-            id="currency"
+        <div className="max-w-xs space-y-2 py-3">
+          <Dropdown
+            label="Currency"
             value={s.currency}
-            onChange={(e) => s.set({ currency: e.target.value as keyof typeof VP_PRICES })}
-            className="mt-2 min-h-11 border border-line-strong bg-raised px-2"
-          >
-            {Object.keys(VP_PRICES).map((code) => (
-              <option key={code} value={code}>
-                {code} ({VP_PRICES[code as keyof typeof VP_PRICES].symbol})
-              </option>
-            ))}
-          </select>
+            options={(Object.keys(VP_PRICES) as (keyof typeof VP_PRICES)[]).map((code) => ({
+              value: code,
+              label: `${code} (${VP_PRICES[code].symbol})`,
+            }))}
+            onChange={(code) => s.set({ currency: code })}
+          />
+          <p className="text-sm text-muted">Peso is the only currency with pack prices so far.</p>
         </div>
       </div>
     </Panel>

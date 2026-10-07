@@ -12,6 +12,7 @@ import {
   type Shard,
 } from "@valovertix/riot";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Dropdown } from "@/components/ui/dropdown";
 import { cn } from "@/lib/cn";
 import { toast } from "@/components/toast";
 import { connectErrorMessage } from "./connect-errors";
@@ -86,21 +87,12 @@ export function SignInPanel({
         <p className="text-muted">
           Riot didn't tell us which region your account plays in. Pick it to continue.
         </p>
-        <label htmlFor={ids.region} className="block font-medium">
-          Region
-        </label>
-        <select
-          id={ids.region}
+        <Dropdown
+          label="Region"
           value={shard}
-          onChange={(e) => setShard(e.target.value as Shard)}
-          className="min-h-11 w-full border border-line-strong bg-raised px-3"
-        >
-          {SHARDS.map((s) => (
-            <option key={s} value={s}>
-              {SHARD_LABELS[s]}
-            </option>
-          ))}
-        </select>
+          options={SHARDS.map((s) => ({ value: s, label: SHARD_LABELS[s] }))}
+          onChange={setShard}
+        />
         <div className="flex flex-wrap gap-2">
           <Button
             variant="primary"

@@ -4,44 +4,17 @@ import { upgradeCount, type OwnedSkin } from "@valovertix/calc";
 import { LoadingBlock, PageHeader, RequireSession } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { EmptyNote, ErrorNote, Switch, Tabs } from "@/components/ui/primitives";
+import { BundlesView, useBundles } from "@/features/collection/bundles";
 import { SkinDrawer } from "@/features/collection/skin-drawer";
+import { Dropdown } from "@/components/ui/dropdown";
 import { SkinGrid } from "@/features/collection/skin-grid";
 import { useCollectibles, useSpending } from "@/features/data";
 import { useSettings } from "@/features/settings-store";
 import { fmtInt } from "@/lib/format";
 
-type Tab = "skins" | "buddies" | "cards" | "sprays" | "titles" | "agents";
+type Tab = "skins" | "bundles" | "buddies" | "cards" | "sprays" | "titles" | "agents";
 type PriceFilter = "any" | "lt1000" | "1000to1999" | "gte2000" | "unpriced";
 type UpgradeFilter = "any" | "some" | "none";
-
-function Select({
-  label,
-  value,
-  onChange,
-  children,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  children: ReactNode;
-}) {
-  const id = useId();
-  return (
-    <div className="min-w-0">
-      <label htmlFor={id} className="mb-1 block text-sm text-muted">
-        {label}
-      </label>
-      <select
-        id={id}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="min-h-11 w-full border border-line-strong bg-raised px-2"
-      >
-        {children}
-      </select>
-    </div>
-  );
-}
 
 function Skins() {
   const { owned, catalog, tierById, themeById, tiers, offerIndex, spending, isPending, error } =
@@ -135,7 +108,10 @@ function Skins() {
     <div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <div className="col-span-2 lg:col-span-5">
-          <label htmlFor={searchId} className="mb-1 block text-sm text-muted">
+          <label
+            htmlFor={searchId}
+            className="mb-1 block font-display text-xs font-semibold uppercase tracking-[0.08em] text-muted"
+          >
             Search by name
           </label>
           <input
@@ -144,47 +120,63 @@ function Skins() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Skin name, e.g. Reaver"
-            className="min-h-11 w-full border border-line-strong bg-raised px-3 placeholder:text-faint"
+            className="min-h-11 w-full border border-line-strong bg-bg/70 px-3 placeholder:text-faint"
           />
         </div>
-        <Select label="Weapon" value={weapon} onChange={setWeapon}>
-          <option value="all">All weapons</option>
-          {catalog.weapons.map((w) => (
-            <option key={w.uuid} value={w.uuid}>
-              {w.name}
-            </option>
-          ))}
-        </Select>
-        <Select label="Tier" value={tier} onChange={setTier}>
-          <option value="all">All tiers</option>
-          {[...tiers]
-            .sort((a, b) => a.rank - b.rank)
-            .map((t) => (
-              <option key={t.uuid} value={t.uuid.toLowerCase()}>
-                {t.displayName.replace(/ Edition$/, "")}
-              </option>
-            ))}
-        </Select>
-        <Select label="Collection" value={theme} onChange={setTheme}>
-          <option value="all">All collections</option>
-          {ownedThemes.map((t) => (
-            <option key={t.uuid} value={t.uuid.toLowerCase()}>
-              {t.displayName}
-            </option>
-          ))}
-        </Select>
-        <Select label="Upgrades" value={upgrades} onChange={(v) => setUpgrades(v as UpgradeFilter)}>
-          <option value="any">Any</option>
-          <option value="some">Has owned upgrades</option>
-          <option value="none">Base only</option>
-        </Select>
-        <Select label="Price" value={price} onChange={(v) => setPrice(v as PriceFilter)}>
-          <option value="any">Any price</option>
-          <option value="lt1000">Under 1,000 VP</option>
-          <option value="1000to1999">1,000 to 1,999 VP</option>
-          <option value="gte2000">2,000 VP and up</option>
-          <option value="unpriced">No store price</option>
-        </Select>
+        <Dropdown
+          label="Weapon"
+          value={weapon}
+          onChange={setWeapon}
+          options={[
+            { value: "all", label: "All weapons" },
+            ...catalog.weapons.map((w) => ({ value: w.uuid, label: w.name })),
+          ]}
+        />
+        <Dropdown
+          label="Tier"
+          value={tier}
+          onChange={setTier}
+          options={[
+            { value: "all", label: "All tiers" },
+            ...[...tiers]
+              .sort((a, b) => a.rank - b.rank)
+              .map((t) => ({
+                value: t.uuid.toLowerCase(),
+                label: t.displayName.replace(/ Edition$/, ""),
+              })),
+          ]}
+        />
+        <Dropdown
+          label="Collection"
+          value={theme}
+          onChange={setTheme}
+          options={[
+            { value: "all", label: "All collections" },
+            ...ownedThemes.map((t) => ({ value: t.uuid.toLowerCase(), label: t.displayName })),
+          ]}
+        />
+        <Dropdown<UpgradeFilter>
+          label="Upgrades"
+          value={upgrades}
+          onChange={setUpgrades}
+          options={[
+            { value: "any", label: "Any" },
+            { value: "some", label: "Has owned upgrades" },
+            { value: "none", label: "Base only" },
+          ]}
+        />
+        <Dropdown<PriceFilter>
+          label="Price"
+          value={price}
+          onChange={setPrice}
+          options={[
+            { value: "any", label: "Any price" },
+            { value: "lt1000", label: "Under 1,000 VP" },
+            { value: "1000to1999", label: "1,000 to 1,999 VP" },
+            { value: "gte2000", label: "2,000 VP and up" },
+            { value: "unpriced", label: "No store price" },
+          ]}
+        />
       </div>
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-x-6 border-b border-line pb-3">
@@ -275,9 +267,11 @@ function Collection() {
   const [tab, setTab] = useState<Tab>("skins");
   const { owned } = useSpending();
   const c = useCollectibles();
+  const { rows: bundleRows } = useBundles();
   const count = (n: number | undefined | null) => (n == null ? "" : ` ${n}`);
   const tabs: { id: Tab; label: ReactNode }[] = [
     { id: "skins", label: `Skins${count(owned?.length)}` },
+    { id: "bundles", label: `Bundles${count(bundleRows?.length)}` },
     { id: "buddies", label: `Buddies${count(c.buddies?.length)}` },
     { id: "cards", label: `Cards${count(c.cards?.length)}` },
     { id: "sprays", label: `Sprays${count(c.sprays?.length)}` },
@@ -288,12 +282,13 @@ function Collection() {
     <>
       <Tabs label="Collection type" value={tab} onChange={setTab} tabs={tabs} />
       <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="mt-5">
-        {c.errors.length > 0 && tab !== "skins" && (
+        {c.errors.length > 0 && tab !== "skins" && tab !== "bundles" && (
           <p className="mb-3 text-sm text-muted">
             Some of your items didn't load: {c.errors.join(", ")}.
           </p>
         )}
         {tab === "skins" && <Skins />}
+        {tab === "bundles" && <BundlesView />}
         {tab === "buddies" && <ItemGrid items={c.buddies} image={(b) => b.displayIcon} />}
         {tab === "cards" && <ItemGrid wide items={c.cards} image={(x) => x.wideArt} />}
         {tab === "sprays" && (
@@ -330,7 +325,8 @@ export default function CollectionRoute() {
   return (
     <RequireSession title="Collection">
       <PageHeader title="Collection">
-        Everything on this account, grouped by weapon. Select a skin for levels, variants and price.
+        Everything on this account: skins by weapon, bundles you have collected, and the rest.
+        Select a skin for levels, variants and price.
       </PageHeader>
       <Collection />
     </RequireSession>

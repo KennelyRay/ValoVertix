@@ -75,6 +75,19 @@ describe("loadStatic", () => {
     enableAssetCache();
   });
 
+  it("passes cancellation during the body read through", async () => {
+    await deleteAssetCache();
+    enableAssetCache();
+    const f = vi.fn(async () => {
+      const res = new Response("{}", { status: 200 });
+      vi.spyOn(res, "json").mockRejectedValue(new DOMException("aborted", "AbortError"));
+      return res;
+    });
+    await expect(loadStatic("themes", "x", { fetch: f })).rejects.toMatchObject({
+      name: "AbortError",
+    });
+  });
+
   it("fetches a single skin", async () => {
     const f = json({
       status: 200,

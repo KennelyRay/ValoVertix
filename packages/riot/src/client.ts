@@ -73,7 +73,9 @@ async function request<S extends z.ZodType>(
   let json: unknown;
   try {
     json = await res.json();
-  } catch {
+  } catch (err) {
+    // A request cancelled mid-download is not a broken response.
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
     throw new RiotApiError("schema", endpoint, {
       issues: [{ source: endpoint, path: "(root)", code: "invalid_json" }],
     });

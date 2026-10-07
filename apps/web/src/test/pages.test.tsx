@@ -170,9 +170,10 @@ describe("paste-URL sign-in", () => {
     await user.click(await screen.findByLabelText(/Paste the address/));
     await user.paste(fakeAccessUrl({ exp: Math.floor(Date.now() / 1000) + 3600 }));
     await user.click(screen.getByRole("button", { name: "Show my account" }));
-    const region = await screen.findByLabelText("Region");
-    expect(region).toHaveValue("ap");
-    await user.selectOptions(region, "eu");
+    const region = await screen.findByRole("combobox", { name: "Region" });
+    expect(region).toHaveTextContent("Asia Pacific");
+    await user.click(region);
+    await user.click(screen.getByRole("option", { name: "Europe" }));
     await user.click(screen.getByRole("button", { name: "Continue with this region" }));
     await waitFor(() => expect(useSessionStore.getState().sessions[0]?.shard).toBe("eu"));
     expect(useSessionStore.getState().sessions[0]?.shardPicked).toBe(true);
@@ -361,15 +362,51 @@ describe("signed-in pages", () => {
     expect(await screen.findByText("No accounts connected")).toBeInTheDocument();
   });
 
-  it("share page renders the card without the Riot ID by default", async () => {
+  it("share page builds each template without the Riot ID by default", async () => {
+    const user = userEvent.setup();
     renderApp("/share");
-    expect(
-      await screen.findByText("Estimated skin spend", {}, { timeout: 8000 }),
-    ).toBeInTheDocument();
-    const card = document.querySelector("[data-share-card]")!;
-    expect(card.textContent).not.toContain("Demo Player");
-    expect(card.textContent).not.toContain(riot.puuid);
-    expect(card.textContent).toContain("ESTIMATE");
+    const card = () => document.querySelector("[data-share-card]")!;
+    // Locker is the default: a grid of the most valuable skins.
+    expect(await screen.findByText("My locker", {}, { timeout: 8000 })).toBeInTheDocument();
+    await waitFor(() => expect(card().textContent).toContain(expected.priced[0]!.owned.skin.name), {
+      timeout: 8000,
+    });
+    expect(card().textContent).not.toContain("Demo Player");
+    expect(card().textContent).not.toContain(riot.puuid);
+
+    await user.click(screen.getByRole("radio", { name: /Spending/ }));
+    expect(card().textContent).toContain("ESTIMATE");
+
+    await user.click(screen.getByRole("radio", { name: /Rank/ }));
+    expect(await within(card() as HTMLElement).findByText("Peak")).toBeInTheDocument();
+
+    // Opting in shows the Riot ID.
+    await user.click(screen.getByRole("switch", { name: /Show my Riot ID/ }));
+    expect(card().textContent).toContain("Demo Player#DEMO");
+  });
+
+  it("share card can show hand-picked skins", async () => {
+    const user = userEvent.setup();
+    renderApp("/share");
+    await screen.findByText("My locker", {}, { timeout: 8000 });
+    await waitFor(
+      () =>
+        expect(document.querySelector("[data-share-card]")!.textContent).toContain(
+          expected.priced[0]!.owned.skin.name,
+        ),
+      { timeout: 8000 },
+    );
+    const pick = expected.priced.at(-1)!.owned.skin;
+    await user.click(screen.getByRole("combobox", { name: /Skins on the card/ }));
+    await user.click(screen.getByRole("option", { name: /Picked by me/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Choose skins" });
+    await user.type(within(dialog).getByLabelText("Search your skins"), pick.name);
+    await user.click(within(dialog).getByRole("button", { name: new RegExp(pick.name) }));
+    expect(within(dialog).getByText(/1 of 9 picked/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Done" }));
+    const tiles = document.querySelector("[data-share-card]")!.textContent!;
+    expect(tiles).toContain(pick.name);
+    expect(tiles).not.toContain(expected.priced[0]!.owned.skin.name);
   });
 });
 
@@ -481,6 +518,8 @@ describe("error handling", () => {
     expect(
       await screen.findByText(/If you play in another region/, {}, { timeout: 8000 }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Switch region" })).toHaveValue("ap");
+    expect(screen.getByRole("combobox", { name: "Switch region" })).toHaveTextContent(
+      "Asia Pacific",
+    );
   });
 });
