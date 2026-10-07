@@ -100,6 +100,12 @@ function Preferences() {
           description="Battle pass, contract and other no-tier rewards."
         />
         <Switch
+          checked={s.hideFreeBundles}
+          onChange={(v) => s.set({ hideFreeBundles: v })}
+          label="Hide battle pass and free collections"
+          description="In the Bundles tab, collections where every skin came from a battle pass, contract or event."
+        />
+        <Switch
           checked={s.backdropArt}
           onChange={(v) => s.set({ backdropArt: v })}
           label="Background art"

@@ -6,6 +6,8 @@ export type MotionPreference = "system" | "reduce";
 
 interface SettingsState {
   hideFreeSkins: boolean;
+  /** Hide collections made only of battle pass, contract or no-tier skins. */
+  hideFreeBundles: boolean;
   includeAgents: boolean;
   motion: MotionPreference;
   /** Bundle or map art behind the page. The grid always shows. */
@@ -20,6 +22,7 @@ export const useSettings = create<SettingsState>()(
   persist(
     (set) => ({
       hideFreeSkins: true,
+      hideFreeBundles: true,
       includeAgents: false,
       motion: "system",
       backdropArt: true,

@@ -320,7 +320,11 @@ describe("signed-in pages", () => {
     expect(
       await screen.findByText(/Across your last 20 loaded matches/, {}, { timeout: 8000 }),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Show as table" }));
+    expect(screen.getByRole("img", { name: /Act rank: your best 9 wins/ })).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Agents" }));
+    expect(screen.getAllByText(/% win/).length).toBeGreaterThan(0);
+    await user.click(screen.getByRole("tab", { name: "Rank history" }));
+    await user.click(await screen.findByRole("button", { name: "Show as table" }));
     expect(screen.getByRole("table", { name: /Rank after each ranked game/ })).toBeInTheDocument();
   });
 

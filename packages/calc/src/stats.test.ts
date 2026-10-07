@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  acs,
+  actRecord,
   aggregateMatches,
   currentRank,
   kda,
@@ -242,5 +244,55 @@ describe("aggregateMatches", () => {
   it("handles no matches and zero deaths", () => {
     expect(aggregateMatches([])).toMatchObject({ games: 0, winRate: 0, kda: 0 });
     expect(kda(3, 0, 1)).toBe(4);
+  });
+});
+
+describe("actRecord and acs", () => {
+  const mmr = {
+    QueueSkills: {
+      competitive: {
+        SeasonalInfoBySeasonID: {
+          act: {
+            SeasonID: "act",
+            CompetitiveTier: 18,
+            RankedRating: 0,
+            WinsByTier: { "16": 2, "18": 1, "17": 0, junk: 3 },
+            NumberOfWins: 3,
+            NumberOfGames: 7,
+          },
+          bare: { SeasonID: "bare", CompetitiveTier: 0, RankedRating: 0, WinsByTier: null },
+        },
+      },
+    },
+  };
+
+  it("lists wins by tier, highest first, with act totals", () => {
+    expect(actRecord(mmr, "act")).toEqual({
+      seasonId: "act",
+      winTiers: [18, 16, 16],
+      wins: 3,
+      games: 7,
+    });
+  });
+
+  it("maps old-act tiers and falls back when totals are missing", () => {
+    expect(actRecord(mmr, "act", (_s, t) => t + 3)?.winTiers).toEqual([21, 19, 19]);
+    expect(actRecord(mmr, "bare")).toEqual({ seasonId: "bare", winTiers: [], wins: 0, games: 0 });
+  });
+
+  it("returns null without an act", () => {
+    expect(actRecord(mmr, null)).toBeNull();
+    expect(actRecord(mmr, "missing")).toBeNull();
+    expect(actRecord({}, "act")).toBeNull();
+  });
+
+  it("computes average combat score", () => {
+    expect(
+      acs([
+        { score: 4000, roundsPlayed: 20 },
+        { score: 2000, roundsPlayed: 20 },
+      ]),
+    ).toBe(150);
+    expect(acs([])).toBe(0);
   });
 });

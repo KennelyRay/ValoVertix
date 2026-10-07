@@ -15,6 +15,7 @@ import {
   type StaticKey,
 } from "@valovertix/assets";
 import {
+  actRecord,
   aggregateMatches,
   computeSpending,
   currentRank,
@@ -259,11 +260,14 @@ export function useRanks() {
     () => buildTierNormalizer(seasons.data ?? [], tierSets.data ?? []),
     [seasons.data, tierSets.data],
   );
+  const current = mmr.data ? currentRank(mmr.data, undefined, normalize) : null;
   return {
     mmr,
     updates,
     tiers,
-    current: mmr.data ? currentRank(mmr.data, undefined, normalize) : null,
+    current,
+    /** Wins by tier in the current act, for the act-rank triangle. */
+    act: mmr.data && current ? actRecord(mmr.data, current.seasonId, normalize) : null,
     peak: mmr.data ? peakRank(mmr.data, normalize) : null,
     history: updates.data ? rankHistory(updates.data, normalize) : [],
   };

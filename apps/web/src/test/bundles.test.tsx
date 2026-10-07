@@ -16,7 +16,14 @@ const owned = resolveOwnedSkins(
   riot.entitlements[ITEM_TYPE.skinLevel],
   riot.entitlements[ITEM_TYPE.skinChroma],
 );
-const groups = groupByCollection(catalog.skins, owned);
+const allGroups = groupByCollection(catalog.skins, owned);
+const isFree = (g: (typeof allGroups)[number]) =>
+  (g.skins.length ? g.skins : g.owned.map((o) => o.skin)).every(
+    (s) => s.isContractReward || !s.tierId,
+  );
+// Free (battle pass / contract) collections are hidden by default.
+const groups = allGroups.filter((g) => !isFree(g));
+const freeGroups = allGroups.filter(isFree);
 const themeName = (id: string) =>
   staticData.themes.find((t) => t.uuid.toLowerCase() === id)?.displayName ?? "";
 // A collection that matches a real store bundle in the fixtures (Abyssal).
@@ -33,6 +40,30 @@ beforeEach(async () => {
 });
 
 describe("bundles tab", () => {
+  it("hides battle pass and free collections until the switch is turned off", async () => {
+    expect(freeGroups.length).toBeGreaterThan(0);
+    const user = userEvent.setup();
+    renderApp("/collection");
+    await user.click(
+      await screen.findByRole("tab", { name: `Bundles ${groups.length}` }, { timeout: 8000 }),
+    );
+    expect(
+      await screen.findByText(
+        new RegExp(`${freeGroups.length} free collections hidden`),
+        {},
+        { timeout: 8000 },
+      ),
+    ).toBeInTheDocument();
+    const freeName = themeName(freeGroups[0]!.themeId);
+    expect(
+      screen.queryByRole("button", { name: new RegExp(`^${freeName}`) }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("switch", { name: "Hide battle pass and free collections" }));
+    expect(screen.getByText(new RegExp(`of ${allGroups.length} collections`))).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: `Bundles ${allGroups.length}` })).toBeInTheDocument();
+  });
+
   it("lists collections with progress and opens the skin list", async () => {
     const user = userEvent.setup();
     renderApp("/collection");

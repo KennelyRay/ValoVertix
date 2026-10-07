@@ -267,3 +267,42 @@ export function aggregateMatches(summaries: readonly MatchSummary[]): MatchAggre
     ),
   };
 }
+
+export interface ActRecord {
+  seasonId: string;
+  /** One entry per win, as a tier on today's scale, highest first. */
+  winTiers: number[];
+  wins: number;
+  games: number;
+}
+
+/** Wins by tier for one act (the act-rank triangle), plus the act's win/game totals. */
+export function actRecord(
+  mmr: MmrLike,
+  seasonId: string | null | undefined,
+  normalize: TierNormalizer = identity,
+): ActRecord | null {
+  if (!seasonId) return null;
+  const s = mmr.QueueSkills?.competitive?.SeasonalInfoBySeasonID?.[seasonId] as
+    (SeasonLike & { NumberOfWins?: number; NumberOfGames?: number }) | undefined;
+  if (!s) return null;
+  const winTiers = Object.entries(s.WinsByTier ?? {})
+    .flatMap(([tier, count]) =>
+      Number.isFinite(Number(tier)) && count > 0
+        ? Array.from({ length: count }, () => normalize(s.SeasonID, Number(tier)))
+        : [],
+    )
+    .sort((a, b) => b - a);
+  return {
+    seasonId: s.SeasonID,
+    winTiers,
+    wins: s.NumberOfWins ?? winTiers.length,
+    games: s.NumberOfGames ?? 0,
+  };
+}
+
+/** Average combat score: total score over total rounds. */
+export const acs = (matches: readonly Pick<MatchSummary, "score" | "roundsPlayed">[]) => {
+  const rounds = matches.reduce((s, m) => s + m.roundsPlayed, 0);
+  return rounds ? matches.reduce((s, m) => s + m.score, 0) / rounds : 0;
+};

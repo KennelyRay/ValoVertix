@@ -3,7 +3,8 @@ import type { CatalogSkin, ContentTier } from "@valovertix/assets";
 import { groupByCollection } from "@valovertix/calc";
 import { LoadingBlock } from "@/components/shared";
 import { Dropdown } from "@/components/ui/dropdown";
-import { Dialog, EmptyNote, ErrorNote } from "@/components/ui/primitives";
+import { Dialog, EmptyNote, ErrorNote, Switch } from "@/components/ui/primitives";
+import { useSettings } from "@/features/settings-store";
 import { useOwnedSkins, useStatic } from "@/features/data";
 import { cn } from "@/lib/cn";
 import { apiColor, fmtInt, fmtPct } from "@/lib/format";
@@ -19,6 +20,8 @@ interface BundleRow {
   ownedIds: Set<string>;
   ownedCount: number;
   total: number;
+  /** Every skin is a battle pass, contract or no-tier reward: nothing was bought. */
+  free: boolean;
 }
 
 /**
@@ -46,11 +49,28 @@ export function useBundles() {
         ownedIds: new Set(g.owned.map((o) => o.skin.uuid)),
         ownedCount: g.owned.length,
         total: Math.max(g.skins.length, g.owned.length),
+        free: (g.skins.length ? g.skins : g.owned.map((o) => o.skin)).every(
+          (s) => s.isContractReward || !s.tierId,
+        ),
       };
     });
   }, [catalog, owned, bundles.data, themeById]);
 
-  return { rows, tierById, isPending: isPending || (bundles.isPending && !bundles.isError), error };
+  const hideFree = useSettings((s) => s.hideFreeBundles);
+  const shown = useMemo(
+    () => (rows && hideFree ? rows.filter((r) => !r.free) : rows),
+    [rows, hideFree],
+  );
+
+  return {
+    rows,
+    /** Rows after the "hide free collections" preference. */
+    shown,
+    hiddenFree: rows && shown ? rows.length - shown.length : 0,
+    tierById,
+    isPending: isPending || (bundles.isPending && !bundles.isError),
+    error,
+  };
 }
 
 function Collage({ skins }: { skins: CatalogSkin[] }) {
@@ -145,7 +165,9 @@ function BundleDetail({ row, tierById }: { row: BundleRow; tierById: Map<string,
 }
 
 export function BundlesView() {
-  const { rows, tierById, isPending, error } = useBundles();
+  const { shown: rows, hiddenFree, tierById, isPending, error } = useBundles();
+  const hideFree = useSettings((s) => s.hideFreeBundles);
+  const setSettings = useSettings((s) => s.set);
   const [sort, setSort] = useState<Sort>("complete");
   const [show, setShow] = useState<Show>("all");
   const [query, setQuery] = useState("");
@@ -172,11 +194,24 @@ export function BundlesView() {
   if (error || !rows) {
     return <ErrorNote title="Couldn't load your collections.">Try reloading the page.</ErrorNote>;
   }
+  const freeToggle = (
+    <Switch
+      checked={hideFree}
+      onChange={(v) => setSettings({ hideFreeBundles: v })}
+      label="Hide battle pass and free collections"
+      description="Collections where every skin came from a battle pass, contract or event"
+    />
+  );
   if (rows.length === 0) {
     return (
-      <EmptyNote title="No collections yet">
-        Skins you own from a collection or bundle show up here.
-      </EmptyNote>
+      <div className="space-y-4">
+        <div className="max-w-xl">{freeToggle}</div>
+        <EmptyNote title="No collections yet">
+          {hiddenFree > 0
+            ? `${hiddenFree} free collections are hidden. Turn the switch off to see them.`
+            : "Skins you own from a collection or bundle show up here."}
+        </EmptyNote>
+      </div>
     );
   }
 
@@ -223,9 +258,13 @@ export function BundlesView() {
         />
       </div>
 
-      <p className="mt-3 border-b border-line pb-3 text-sm text-muted" aria-live="polite">
-        {fmtInt(visible.length)} of {fmtInt(rows.length)} collections, {fmtInt(complete)} complete
-      </p>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-6 border-b border-line pb-3">
+        <p className="text-sm text-muted" aria-live="polite">
+          {fmtInt(visible.length)} of {fmtInt(rows.length)} collections, {fmtInt(complete)} complete
+          {hiddenFree > 0 && `, ${fmtInt(hiddenFree)} free collections hidden`}
+        </p>
+        <div className="w-full sm:w-auto">{freeToggle}</div>
+      </div>
 
       {visible.length === 0 ? (
         <div className="mt-6">

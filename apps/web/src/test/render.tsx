@@ -30,6 +30,7 @@ export function resetApp() {
   useSessionStore.setState({ booting: false });
   useSettings.setState({
     hideFreeSkins: true,
+    hideFreeBundles: true,
     includeAgents: false,
     motion: "system",
     backdropArt: true,

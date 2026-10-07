@@ -267,7 +267,7 @@ function Collection() {
   const [tab, setTab] = useState<Tab>("skins");
   const { owned } = useSpending();
   const c = useCollectibles();
-  const { rows: bundleRows } = useBundles();
+  const { shown: bundleRows } = useBundles();
   const count = (n: number | undefined | null) => (n == null ? "" : ` ${n}`);
   const tabs: { id: Tab; label: ReactNode }[] = [
     { id: "skins", label: `Skins${count(owned?.length)}` },
