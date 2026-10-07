@@ -1,4 +1,5 @@
 // Structural types so this package stays free of the Riot client.
+import { combatBySubject, headshotRate, type CombatStats, type RoundLike } from "./match";
 
 export interface SeasonLike {
   SeasonID: string;
@@ -137,6 +138,7 @@ export interface MatchDetailsLike {
       | undefined;
   }[];
   teams?: readonly { teamId: string; won: boolean; roundsWon: number }[] | null | undefined;
+  roundResults?: readonly RoundLike[] | null | undefined;
 }
 
 export type MatchResult = "win" | "loss" | "draw";
@@ -155,6 +157,8 @@ export interface MatchSummary {
   assists: number;
   score: number;
   roundsPlayed: number;
+  /** Shots, damage, first kills and weapon kills; null when Riot sent no round data. */
+  combat: CombatStats | null;
 }
 
 /** Summarizes one match from the given player's point of view, or null if they aren't in it. */
@@ -185,6 +189,9 @@ export function summarizeMatch(details: MatchDetailsLike, puuid: string): MatchS
     assists: s?.assists ?? 0,
     score: s?.score ?? 0,
     roundsPlayed: s?.roundsPlayed ?? 0,
+    combat: details.roundResults?.length
+      ? (combatBySubject(details.roundResults).get(me.subject.toLowerCase()) ?? null)
+      : null,
   };
 }
 
@@ -215,6 +222,13 @@ export interface MatchAggregate {
   agents: GroupStats[];
   /** Best win rate first (ties: more games first). */
   maps: GroupStats[];
+  /** From matches with round data only; null when none have it. */
+  headshotRate: number | null;
+  adr: number | null;
+  firstKills: number;
+  firstDeaths: number;
+  /** Kills per weapon UUID, most first. */
+  weapons: { key: string; kills: number }[];
 }
 
 function group(summaries: readonly MatchSummary[], key: (m: MatchSummary) => string | null) {
@@ -249,6 +263,15 @@ export function aggregateMatches(summaries: readonly MatchSummary[]): MatchAggre
   const kills = summaries.reduce((s, m) => s + m.kills, 0);
   const deaths = summaries.reduce((s, m) => s + m.deaths, 0);
   const assists = summaries.reduce((s, m) => s + m.assists, 0);
+  const withCombat = summaries.filter((m) => m.combat);
+  const sum = (f: (c: CombatStats) => number) => withCombat.reduce((s, m) => s + f(m.combat!), 0);
+  const rounds = withCombat.reduce((s, m) => s + m.roundsPlayed, 0);
+  const weaponKills = new Map<string, number>();
+  for (const m of withCombat) {
+    for (const [w, k] of Object.entries(m.combat!.weaponKills)) {
+      weaponKills.set(w, (weaponKills.get(w) ?? 0) + k);
+    }
+  }
   return {
     games,
     wins,
@@ -265,6 +288,19 @@ export function aggregateMatches(summaries: readonly MatchSummary[]): MatchAggre
     maps: group(summaries, (m) => m.mapId).sort(
       (a, b) => b.winRate - a.winRate || b.games - a.games || a.key.localeCompare(b.key),
     ),
+    headshotRate: withCombat.length
+      ? headshotRate({
+          headshots: sum((c) => c.headshots),
+          bodyshots: sum((c) => c.bodyshots),
+          legshots: sum((c) => c.legshots),
+        })
+      : null,
+    adr: rounds ? sum((c) => c.damage) / rounds : null,
+    firstKills: sum((c) => c.firstKills),
+    firstDeaths: sum((c) => c.firstDeaths),
+    weapons: [...weaponKills.entries()]
+      .map(([key, kills]) => ({ key, kills }))
+      .sort((a, b) => b.kills - a.kills || a.key.localeCompare(b.key)),
   };
 }
 

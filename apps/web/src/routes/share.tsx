@@ -8,11 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Dropdown } from "@/components/ui/dropdown";
 import { Dialog, Panel, Switch } from "@/components/ui/primitives";
 import { useActiveSession } from "@/features/auth/session-store";
+import { useEquippedGuns, type EquippedGun } from "@/features/collection/loadout";
 import { useProfile } from "@/features/dashboard/profile";
 import { useMatchStats, useRanks, useSpending, useStatic, useStorefront } from "@/features/data";
 import { useSettings } from "@/features/settings-store";
 import {
   SIZES,
+  LOADOUT_SLOTS,
   SKIN_SLOTS,
   ShareCard,
   type CardData,
@@ -22,15 +24,51 @@ import {
 } from "@/features/share/cards";
 import { downloadBlob, exportPng } from "@/features/share/export";
 import { cn } from "@/lib/cn";
+import { apiColor } from "@/lib/format";
+
+/** Which equipped skins make the loadout card when not all fit: the most-used guns first. */
+const LOADOUT_PRIORITY = [
+  "vandal",
+  "phantom",
+  "melee",
+  "operator",
+  "sheriff",
+  "ghost",
+  "classic",
+  "spectre",
+  "marshal",
+  "guardian",
+  "bulldog",
+  "outlaw",
+  "odin",
+  "ares",
+  "judge",
+  "bucky",
+  "stinger",
+  "frenzy",
+  "shorty",
+  "bandit",
+];
 
 const TEMPLATES: { id: Template; label: string; text: string }[] = [
   { id: "locker", label: "Locker", text: "Your best skins in a grid" },
   { id: "spending", label: "Spending", text: "Estimated value and top skins" },
   { id: "profile", label: "Profile", text: "Player card, rank and stats" },
   { id: "rank", label: "Rank", text: "Rank, RR and recent results" },
+  { id: "loadout", label: "Loadout", text: "The skins you have equipped" },
 ];
 
 type SkinMode = "value" | "tier" | "picked";
+
+function loadoutForCard(guns: EquippedGun[], slots: number) {
+  const skinned = guns.filter((g) => !g.isDefault && g.skin);
+  const rank = (g: EquippedGun) => {
+    const i = LOADOUT_PRIORITY.indexOf(g.weapon.displayName.toLowerCase());
+    return i === -1 ? LOADOUT_PRIORITY.length : i;
+  };
+  const keep = new Set([...skinned].sort((a, b) => rank(a) - rank(b)).slice(0, slots));
+  return skinned.filter((g) => keep.has(g));
+}
 type Background = "card" | "bundle" | "none";
 
 function SkinPicker({
@@ -147,6 +185,7 @@ function Share() {
   const ranks = useRanks();
   const matches = useMatchStats(10);
   const profile = useProfile();
+  const equipped = useEquippedGuns();
   const storefront = useStorefront(true);
   const bundles = useStatic("bundles", Boolean(storefront.data?.bundles.length));
 
@@ -249,12 +288,24 @@ function Share() {
     peak: ranks.peak,
     tiers: ranks.tiers,
     recent,
+    loadoutCount: (equipped.guns ?? []).filter((g) => !g.isDefault && g.skin).length,
+    loadout: loadoutForCard(equipped.guns ?? [], LOADOUT_SLOTS[size]).map((g) => ({
+      key: g.weapon.uuid,
+      weapon: g.weapon.displayName,
+      skin: g.skin!.name,
+      image: g.image,
+      color: apiColor(
+        g.skin!.tierId ? equipped.tierById.get(g.skin!.tierId)?.highlightColor : undefined,
+      ),
+    })),
   };
 
   const ready =
     template === "rank" || template === "profile"
       ? !ranks.mmr.isPending
-      : Boolean(sp.owned && sp.spending);
+      : template === "loadout"
+        ? Boolean(equipped.guns)
+        : Boolean(sp.owned && sp.spending);
 
   async function onExport() {
     const node = cardRef.current?.querySelector<HTMLElement>("[data-share-card] > div");

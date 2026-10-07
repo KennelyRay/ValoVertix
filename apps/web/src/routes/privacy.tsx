@@ -26,6 +26,10 @@ const STORAGE = [
     "Public game data (skin names, images, ranks) cached per game version.",
   ],
   ["Local storage, key vv.settings", "Preferences such as “hide free skins”. No account data."],
+  [
+    "Local storage, key vv.wishlist",
+    "The skins you starred, as game item IDs. No account data. Stays until you remove them or clear all data.",
+  ],
   ["Session storage, key vv.demo", "Only in demo mode, to keep the demo running after a reload."],
 ] as const;
 

@@ -7,6 +7,7 @@ import { fakeAccessUrl } from "@valovertix/riot/test-utils";
 import { connectAccount } from "@/features/auth/connect";
 import { useSessionStore } from "@/features/auth/session-store";
 import { useSettings } from "@/features/settings-store";
+import { useWishlist } from "@/features/wishlist/wishlist-store";
 import { queryClient } from "@/lib/query-client";
 import { createAppRouter } from "@/router";
 
@@ -36,6 +37,7 @@ export function resetApp() {
     backdropArt: true,
     showRiotIdOnShare: false,
   });
+  useWishlist.setState({ ids: [] });
 }
 
 export function renderApp(path: string) {

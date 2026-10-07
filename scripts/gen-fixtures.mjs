@@ -4,6 +4,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { addRounds, equippedGuns } from "./fixture-rounds.mjs";
 
 const OUT = join(dirname(fileURLToPath(import.meta.url)), "../apps/web/src/mocks/fixtures");
 const API = "https://valorant-api.com";
@@ -372,6 +373,14 @@ const riot = {
   },
   matches,
 };
+
+// Round data (kills, damage, names) and the equipped guns.
+{
+  const weaponIds = Object.fromEntries(weapons.map((w) => [w.displayName.toLowerCase(), w.uuid]));
+  const me = { puuid: riot.puuid, gameName: riot.gameName, tagLine: riot.tagLine };
+  for (const m of riot.matches) addRounds(m, { rand, weaponIds, me });
+  riot.loadout.Guns = equippedGuns({ weapons, ownedLevelIds: ownedLevels, rand });
+}
 
 // ---- Trimmed static data (only what the demo account touches) ----------------------
 

@@ -161,6 +161,7 @@ describe("summarizeMatch", () => {
       assists: 5,
       score: 4000,
       roundsPlayed: 24,
+      combat: null,
     });
   });
 
@@ -206,6 +207,7 @@ describe("aggregateMatches", () => {
     assists: 5,
     score: 0,
     roundsPlayed: 18,
+    combat: null,
     ...over,
   });
 

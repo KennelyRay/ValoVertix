@@ -8,8 +8,20 @@ import { EstimateTag, ErrorNote, Panel, Skeleton } from "@/components/ui/primiti
 import { useSpending, useStatic, useWallet } from "@/features/data";
 import { IdentityHeader, PlayerCardShowcase } from "@/features/dashboard/profile";
 import { EstimateInfo, TierPriceNote } from "@/features/spending/estimate-notes";
+import { useWishlistHits } from "@/features/wishlist/use-wishlist-hits";
+import { WishlistShopNotice } from "@/features/wishlist/wishlist-view";
 import { formatMoney } from "@valovertix/calc";
 import { apiColor, fmtInt, fmtVp } from "@/lib/format";
+
+function WishlistNotice() {
+  const { hits } = useWishlistHits();
+  if (!hits.length) return null;
+  return (
+    <Stagger.Item className="max-lg:order-2">
+      <WishlistShopNotice hits={hits} compact />
+    </Stagger.Item>
+  );
+}
 
 function Wallet() {
   const wallet = useWallet();
@@ -90,6 +102,7 @@ function Dashboard() {
         <Stagger.Item className="max-lg:order-2">
           <IdentityHeader />
         </Stagger.Item>
+        <WishlistNotice />
 
         {error && !owned ? (
           <ErrorNote title="Couldn't load your collection.">

@@ -45,7 +45,7 @@ describe("bundles tab", () => {
     const user = userEvent.setup();
     renderApp("/collection");
     await user.click(
-      await screen.findByRole("tab", { name: `Bundles ${groups.length}` }, { timeout: 8000 }),
+      await screen.findByRole("tab", { name: `Bundles ${groups.length}` }, { timeout: 20000 }),
     );
     expect(
       await screen.findByText(

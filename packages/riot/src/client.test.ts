@@ -244,6 +244,17 @@ describe("loadout", () => {
     expect(String(f.mock.calls[0]![0])).toContain("/personalization/v3/");
   });
 
+  it("returns the equipped guns, skipping malformed ones", async () => {
+    const gun = { ID: "vandal", SkinID: "skin", SkinLevelID: "lvl", ChromaID: "chroma" };
+    const f = mockFetch({ Identity: identity, Guns: [gun, { ID: 5 }] });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const loadout = await createRiotClient(session, f).loadout();
+    expect(loadout.Guns).toEqual([gun]);
+    expect(
+      (await createRiotClient(session, mockFetch({ Identity: identity })).loadout()).Guns,
+    ).toEqual([]);
+  });
+
   it("falls back to v2 when v3 returns 404", async () => {
     const f = vi.fn(async (url: RequestInfo | URL) =>
       String(url).includes("/v3/")

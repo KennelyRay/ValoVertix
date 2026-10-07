@@ -5,6 +5,7 @@ import { CURRENCY } from "@valovertix/riot";
 import { Dialog, EstimateTag } from "@/components/ui/primitives";
 import { currencyConfig } from "@/features/data";
 import { EstimateInfo } from "@/features/spending/estimate-notes";
+import { WishlistButton } from "@/features/wishlist/wishlist-view";
 import { cn } from "@/lib/cn";
 import { fmtMoney, fmtVp } from "@/lib/format";
 
@@ -117,6 +118,7 @@ function SkinDetail({
         </div>
       </dl>
       <EstimateInfo />
+      {!ownsSkin && <WishlistButton skin={skin} />}
 
       {skin.levels.length > 1 && (
         <section aria-labelledby="levels-title">

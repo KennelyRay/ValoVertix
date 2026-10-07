@@ -186,7 +186,18 @@ export const walletSchema = z.object({ Balances: z.record(z.string(), z.number()
 
 // ---- Player --------------------------------------------------------------
 
+const loadoutGun = z.object({
+  ID: id,
+  SkinID: z.string(),
+  SkinLevelID: z.string().nullish(),
+  ChromaID: z.string().nullish(),
+  CharmID: z.string().nullish(),
+  CharmLevelID: z.string().nullish(),
+});
+export type LoadoutGun = z.output<typeof loadoutGun>;
+
 export const loadoutSchema = z.object({
+  Guns: lenientArray(loadoutGun, "loadout.guns").nullish(),
   Identity: z.object({
     PlayerCardID: z.string(),
     PlayerTitleID: z.string(),
@@ -253,6 +264,9 @@ export type MatchHistoryEntry = z.output<typeof matchHistorySchema>["History"][n
 
 const matchPlayer = z.object({
   subject: id,
+  gameName: z.string().nullish(),
+  tagLine: z.string().nullish(),
+  partyId: z.string().nullish(),
   teamId: z.string(),
   characterId: z.string().nullish(),
   competitiveTier: z.number().optional(),
@@ -265,6 +279,40 @@ const matchPlayer = z.object({
       assists: z.number(),
     })
     .nullish(),
+});
+
+const matchKill = z.object({
+  roundTime: z.number().optional(),
+  killer: z.string().nullish(),
+  victim: z.string(),
+  finishingDamage: z
+    .object({ damageType: z.string(), damageItem: z.string() })
+    .nullish()
+    .catch(null),
+});
+
+const roundResult = z.object({
+  roundNum: z.number(),
+  roundResult: z.string().optional(),
+  winningTeam: z.string(),
+  playerStats: lenientArray(
+    z.object({
+      subject: id,
+      kills: z.array(matchKill).nullish(),
+      damage: z
+        .array(
+          z.object({
+            receiver: z.string(),
+            damage: z.number(),
+            headshots: z.number(),
+            bodyshots: z.number(),
+            legshots: z.number(),
+          }),
+        )
+        .nullish(),
+    }),
+    "matchDetails.rounds",
+  ).nullish(),
 });
 
 export const matchDetailsSchema = z.object({
@@ -289,6 +337,7 @@ export const matchDetailsSchema = z.object({
       }),
     )
     .nullish(),
+  roundResults: lenientArray(roundResult, "matchDetails.rounds").nullish(),
 });
 export type MatchDetails = z.output<typeof matchDetailsSchema>;
 

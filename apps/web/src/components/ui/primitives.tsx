@@ -217,12 +217,15 @@ export function Dialog({
   title,
   children,
   side = false,
+  wide = false,
 }: {
   open: boolean;
   onClose: () => void;
   title: ReactNode;
   children: ReactNode;
   side?: boolean;
+  /** A large centered dialog, for tables like the match scoreboard. */
+  wide?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -248,7 +251,9 @@ export function Dialog({
         "m-0 max-h-dvh max-w-none border-line-strong bg-surface p-0 text-text",
         side
           ? "drawer ml-auto h-dvh w-full border-l sm:w-[34rem]"
-          : "modal mx-auto mt-[10vh] w-[min(32rem,calc(100vw-2rem))] border",
+          : wide
+            ? "modal mx-auto mt-[4vh] w-[min(66rem,calc(100vw-1rem))] border"
+            : "modal mx-auto mt-[10vh] w-[min(32rem,calc(100vw-2rem))] border",
       )}
     >
       {open && (

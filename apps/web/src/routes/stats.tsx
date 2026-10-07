@@ -1,13 +1,22 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { m } from "framer-motion";
 import type { Agent, CompetitiveTier, GameMap } from "@valovertix/assets";
-import { acs, kda, type ActRecord, type GroupStats, type MatchSummary } from "@valovertix/calc";
+import {
+  acs,
+  headshotRate,
+  kda,
+  type ActRecord,
+  type GroupStats,
+  type MatchSummary,
+} from "@valovertix/calc";
 import { LoadingBlock, PageHeader, RequireSession } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { EmptyNote, ErrorNote, Panel, Skeleton, Tabs } from "@/components/ui/primitives";
 import { MATCH_DETAILS_PAGE } from "@/config/app";
-import { useMatchStats, useRanks } from "@/features/data";
+import { useMatchStats, useRanks, useStatic } from "@/features/data";
+import { MatchDialog } from "@/features/stats/match-dialog";
 import { RankChart } from "@/features/stats/rank-chart";
+import { SessionCard } from "@/features/stats/session-card";
 import { cn } from "@/lib/cn";
 import { apiColor, fmtDateTime, fmtDec, fmtPct, queueName, titleCase } from "@/lib/format";
 
@@ -215,75 +224,141 @@ function MatchRow({
   s,
   map,
   agent,
+  onOpen,
 }: {
   s: MatchSummary;
   map: GameMap | undefined;
   agent: Agent | undefined;
+  onOpen: () => void;
 }) {
   const matchAcs = s.roundsPlayed ? Math.round(s.score / s.roundsPlayed) : null;
+  const hs = s.combat ? headshotRate(s.combat) : null;
   return (
-    <li className="group relative flex min-h-16 items-center overflow-hidden bg-surface transition-colors hover:bg-raised">
-      {map?.listViewIcon && (
-        // Map strip faded behind a gradient so the stats over it keep full contrast.
-        <img
-          src={map.listViewIcon}
-          alt=""
-          className="pointer-events-none absolute inset-y-0 right-0 h-full w-2/3 object-cover opacity-40 transition-opacity group-hover:opacity-60"
-          loading="lazy"
-        />
-      )}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-gradient-to-r from-surface from-35% to-surface/60 group-hover:from-raised group-hover:to-raised/50"
-      />
-      <span aria-hidden className={cn("relative w-1 self-stretch", RESULT_EDGE[s.result])} />
-      <div className="relative flex flex-1 flex-wrap items-center gap-x-5 gap-y-1 px-3 py-2 sm:flex-nowrap">
-        {agent?.displayIconSmall ? (
+    <li>
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-haspopup="dialog"
+        className="group relative flex min-h-16 w-full items-center overflow-hidden bg-surface text-left transition-colors hover:bg-raised"
+      >
+        {map?.listViewIcon && (
+          // Map strip faded behind a gradient so the stats over it keep full contrast.
           <img
-            src={agent.displayIconSmall}
-            alt={agent.displayName}
-            width={44}
-            height={44}
-            className="size-11 shrink-0 bg-raised"
+            src={map.listViewIcon}
+            alt=""
+            className="pointer-events-none absolute inset-y-0 right-0 h-full w-2/3 object-cover opacity-40 transition-opacity group-hover:opacity-60"
             loading="lazy"
           />
-        ) : (
-          <span className="size-11 shrink-0 bg-raised" />
         )}
-        <div className="w-44 min-w-0">
-          <p
-            className={cn(
-              "font-display text-xl font-bold uppercase leading-none",
-              RESULT_TONE[s.result],
-            )}
-          >
-            {RESULT_TEXT[s.result]}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-gradient-to-r from-surface from-35% to-surface/60 group-hover:from-raised group-hover:to-raised/50"
+        />
+        <span aria-hidden className={cn("relative w-1 self-stretch", RESULT_EDGE[s.result])} />
+        <div className="relative flex flex-1 flex-wrap items-center gap-x-5 gap-y-1 px-3 py-2 sm:flex-nowrap">
+          {agent?.displayIconSmall ? (
+            <img
+              src={agent.displayIconSmall}
+              alt={agent.displayName}
+              width={44}
+              height={44}
+              className="size-11 shrink-0 bg-raised"
+              loading="lazy"
+            />
+          ) : (
+            <span className="size-11 shrink-0 bg-raised" />
+          )}
+          <div className="w-44 min-w-0">
+            <p
+              className={cn(
+                "font-display text-xl font-bold uppercase leading-none",
+                RESULT_TONE[s.result],
+              )}
+            >
+              {RESULT_TEXT[s.result]}
+            </p>
+            <p className="mt-1 truncate text-sm">
+              {map?.displayName ?? "Unknown map"}
+              <span className="text-muted"> · {queueName(s.queueId)}</span>
+            </p>
+          </div>
+          <p className="w-20 font-display text-2xl font-bold tabular-nums">
+            {s.teamScore ?? "-"}
+            <span className="text-muted"> : </span>
+            {s.enemyScore ?? "-"}
           </p>
-          <p className="mt-1 truncate text-sm">
-            {map?.displayName ?? "Unknown map"}
-            <span className="text-muted"> · {queueName(s.queueId)}</span>
-          </p>
+          <div className="w-28">
+            <p className="font-semibold tabular-nums">
+              {s.kills} / {s.deaths} / {s.assists}
+            </p>
+            <p className="text-xs uppercase tracking-wider text-muted">
+              KDA {fmtDec(kda(s.kills, s.deaths, s.assists), 1)}
+            </p>
+          </div>
+          <div className="w-16">
+            <p className="font-semibold tabular-nums">{matchAcs ?? "-"}</p>
+            <p className="text-xs uppercase tracking-wider text-muted">ACS</p>
+          </div>
+          <div className="hidden w-16 md:block">
+            <p className="font-semibold tabular-nums">{hs === null ? "-" : fmtPct(hs)}</p>
+            <p className="text-xs uppercase tracking-wider text-muted">HS%</p>
+          </div>
+          <p className="ml-auto text-right text-sm text-muted">{fmtDateTime(s.startedAt)}</p>
         </div>
-        <p className="w-20 font-display text-2xl font-bold tabular-nums">
-          {s.teamScore ?? "-"}
-          <span className="text-muted"> : </span>
-          {s.enemyScore ?? "-"}
-        </p>
-        <div className="w-28">
-          <p className="font-semibold tabular-nums">
-            {s.kills} / {s.deaths} / {s.assists}
-          </p>
-          <p className="text-xs uppercase tracking-wider text-muted">
-            KDA {fmtDec(kda(s.kills, s.deaths, s.assists), 1)}
-          </p>
-        </div>
-        <div className="w-16">
-          <p className="font-semibold tabular-nums">{matchAcs ?? "-"}</p>
-          <p className="text-xs uppercase tracking-wider text-muted">ACS</p>
-        </div>
-        <p className="ml-auto text-right text-sm text-muted">{fmtDateTime(s.startedAt)}</p>
-      </div>
+      </button>
     </li>
+  );
+}
+
+function WeaponList({
+  rows,
+  weaponById,
+}: {
+  rows: { key: string; kills: number }[];
+  weaponById: Map<string, { displayName: string; displayIcon: string | null }>;
+}) {
+  if (!rows.length) {
+    return <p className="text-sm text-muted">No weapon kills in the loaded matches.</p>;
+  }
+  const total = rows.reduce((s, r) => s + r.kills, 0);
+  const max = rows[0]!.kills;
+  return (
+    <ol className="grid gap-2 sm:grid-cols-2" aria-label="Kills by weapon">
+      {rows.map((r, i) => {
+        const w = weaponById.get(r.key);
+        return (
+          <li key={r.key} className="flex items-center gap-4 bg-surface px-4 py-3">
+            <span className="w-5 font-display text-lg font-bold text-muted tabular-nums">
+              {i + 1}
+            </span>
+            <div className="flex h-10 w-28 shrink-0 items-center justify-center">
+              {w?.displayIcon && (
+                <img
+                  src={w.displayIcon}
+                  alt=""
+                  loading="lazy"
+                  className="max-h-10 w-auto max-w-full object-contain"
+                />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="flex items-baseline justify-between gap-2">
+                <span className="truncate font-display text-lg font-bold uppercase">
+                  {w?.displayName ?? "Unknown weapon"}
+                </span>
+                <span className="shrink-0 text-sm tabular-nums">
+                  {r.kills} {r.kills === 1 ? "kill" : "kills"}
+                  <span className="text-muted"> · {fmtPct(r.kills / total)}</span>
+                </span>
+              </p>
+              <div aria-hidden className="mt-1.5 h-1 bg-line">
+                <div className="h-full bg-accent" style={{ width: `${(r.kills / max) * 100}%` }} />
+              </div>
+            </div>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -399,12 +474,27 @@ function RankHistory() {
   );
 }
 
-type Tab = "matches" | "agents" | "maps" | "rank";
+function Session() {
+  const { history, tiers } = useRanks();
+  const { mapByUrl } = useMatchStats(0);
+  return history.length ? (
+    <SessionCard history={history} tiers={tiers} mapByUrl={mapByUrl} />
+  ) : null;
+}
+
+type Tab = "matches" | "agents" | "weapons" | "maps" | "rank";
 
 function Career() {
   const [count, setCount] = useState(MATCH_DETAILS_PAGE);
   const [tab, setTab] = useState<Tab>("matches");
+  const [openMatch, setOpenMatch] = useState<string | null>(null);
   const { history, ids, details, aggregate, mapByUrl, agentById } = useMatchStats(count);
+  const { tiers } = useRanks();
+  const weapons = useStatic("weapons");
+  const weaponById = useMemo(
+    () => new Map((weapons.data ?? []).map((w) => [w.uuid.toLowerCase(), w])),
+    [weapons.data],
+  );
 
   if (history.isPending) return <LoadingBlock label="Loading match history" />;
   if (history.isError) {
@@ -441,23 +531,32 @@ function Career() {
         {loaded === 0 ? (
           <LoadingBlock label="Loading match details" className="mt-4" />
         ) : (
-          <dl className="mt-3 grid grid-cols-2 gap-y-2 sm:grid-cols-5">
+          <dl className="mt-3 grid grid-cols-2 gap-y-2 sm:grid-cols-3 lg:grid-cols-6">
             <StatCell
               label="Win rate"
               value={fmtPct(aggregate.winRate)}
               note={`${aggregate.wins}W ${aggregate.losses}L${aggregate.draws ? ` ${aggregate.draws}D` : ""}`}
             />
-            <StatCell label="K/D" value={fmtDec(kd)} note={`${aggregate.kills} kills`} />
             <StatCell
-              label="KDA"
-              value={fmtDec(aggregate.kda)}
-              note={`${aggregate.kills} / ${aggregate.deaths} / ${aggregate.assists}`}
+              label="K/D"
+              value={fmtDec(kd)}
+              note={`KDA ${fmtDec(aggregate.kda)} · ${aggregate.kills}/${aggregate.deaths}/${aggregate.assists}`}
             />
             <StatCell label="ACS" value={String(Math.round(acs(details.summaries)))} />
             <StatCell
-              label="Top agent"
-              value={agentById.get(aggregate.agents[0]?.key ?? "")?.displayName ?? "None"}
-              note={aggregate.agents[0] ? `${aggregate.agents[0].games} games` : undefined}
+              label="Headshot %"
+              value={aggregate.headshotRate === null ? "-" : fmtPct(aggregate.headshotRate)}
+              note="Of all hits"
+            />
+            <StatCell
+              label="ADR"
+              value={aggregate.adr === null ? "-" : String(Math.round(aggregate.adr))}
+              note="Damage per round"
+            />
+            <StatCell
+              label="First bloods"
+              value={String(aggregate.firstKills)}
+              note={`${aggregate.firstDeaths} first deaths`}
             />
           </dl>
         )}
@@ -471,6 +570,7 @@ function Career() {
           tabs={[
             { id: "matches", label: "Match history" },
             { id: "agents", label: "Agents" },
+            { id: "weapons", label: "Weapons" },
             { id: "maps", label: "Maps" },
             { id: "rank", label: "Rank history" },
           ]}
@@ -502,6 +602,7 @@ function Career() {
                       s={s}
                       map={mapByUrl.get(s.mapId.toLowerCase())}
                       agent={s.agentId ? agentById.get(s.agentId) : undefined}
+                      onOpen={() => setOpenMatch(id)}
                     />
                   );
                 })}
@@ -514,9 +615,17 @@ function Career() {
             </>
           )}
           {tab === "agents" && <AgentCards rows={aggregate.agents} agentById={agentById} />}
+          {tab === "weapons" && <WeaponList rows={aggregate.weapons} weaponById={weaponById} />}
           {tab === "maps" && <MapCards rows={aggregate.maps} mapByUrl={mapByUrl} />}
           {tab === "rank" && <RankHistory />}
         </div>
+        <MatchDialog
+          matchId={openMatch}
+          onClose={() => setOpenMatch(null)}
+          mapByUrl={mapByUrl}
+          agentById={agentById}
+          tiers={tiers}
+        />
       </div>
     </>
   );
@@ -530,6 +639,7 @@ export default function StatsRoute() {
       </PageHeader>
       <div className="reveal-children space-y-6">
         <RankHero />
+        <Session />
         <Career />
       </div>
     </RequireSession>

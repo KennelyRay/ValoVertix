@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import {
   buildSkinCatalog,
@@ -21,8 +21,10 @@ import {
   currentRank,
   indexOffers,
   peakRank,
+  radianiteToMax,
   rankHistory,
   resolveOwnedSkins,
+  skinPriceVp,
   summarizeMatch,
   vpToMoneyRange,
   type MatchSummary,
@@ -142,6 +144,17 @@ export function useMatchSummaries(matchIds: readonly string[], count = MATCH_DET
   });
 }
 
+/** One match's full details; shares its cache entry with useMatchSummaries. */
+export function useMatchDetails(matchId: string | null) {
+  const { session, client } = useClient();
+  return useQuery({
+    queryKey: riotKey(session?.id ?? "none", session?.shard, "match", matchId ?? ""),
+    queryFn: ({ signal }) => client!.matchDetails(matchId!, signal),
+    enabled: Boolean(client && matchId),
+    staleTime: Infinity,
+  });
+}
+
 // ---- Derived -----------------------------------------------------------------------
 
 export function useSkinCatalog() {
@@ -215,21 +228,56 @@ export function useSpending() {
     [offers.data, storefront.data],
   );
 
+  const priceIndex = useMemo(() => indexOffers(priceList), [priceList]);
+  const fallbackVp = useMemo(
+    () =>
+      priceSource === "tier"
+        ? (s: CatalogSkin) =>
+            tierPriceVp(s.tierId ? tierById.get(s.tierId)?.devName : undefined, s.weaponCategory)
+        : undefined,
+    [priceSource, tierById],
+  );
+
   const result = useMemo(() => {
     if (!skins.owned || !priceSource) return null;
     const paid = agents.data && agentsOwned.data ? paidAgentIds(agentsOwned.data, agents.data) : [];
     return computeSpending({
       ownedSkins: skins.owned,
-      offers: indexOffers(priceList),
+      offers: priceIndex,
       currency: { vp: CURRENCY.vp, radianite: CURRENCY.radianite },
       includeAgents,
       paidAgentIds: paid,
-      ...(priceSource === "tier" && {
-        fallbackVp: (s: CatalogSkin) =>
-          tierPriceVp(s.tierId ? tierById.get(s.tierId)?.devName : undefined, s.weaponCategory),
-      }),
+      ...(fallbackVp && { fallbackVp }),
     });
-  }, [skins.owned, priceList, priceSource, tierById, agents.data, agentsOwned.data, includeAgents]);
+  }, [
+    skins.owned,
+    priceIndex,
+    priceSource,
+    fallbackVp,
+    agents.data,
+    agentsOwned.data,
+    includeAgents,
+  ]);
+
+  // Radianite still needed to unlock every level and variant of what you own.
+  // Only Riot's full price list has upgrade prices.
+  const upgradeToMax = useMemo(() => {
+    if (!skins.owned || priceSource !== "offer") return null;
+    return skins.owned.reduce(
+      (acc, o) => {
+        const r = radianiteToMax(o, priceIndex, CURRENCY.radianite);
+        return { total: acc.total + r.total, items: acc.items + r.items };
+      },
+      { total: 0, items: 0 },
+    );
+  }, [skins.owned, priceIndex, priceSource]);
+
+  /** A skin's VP price: Riot's store price, else (without the price list) its tier's price. */
+  const priceOf = useCallback(
+    (skin: CatalogSkin) =>
+      priceSource ? skinPriceVp(skin, priceIndex, CURRENCY.vp, fallbackVp) : undefined,
+    [priceIndex, priceSource, fallbackVp],
+  );
 
   const currency = currencyConfig();
   const money = result ? vpToMoneyRange(result.totalVp, currency.rate) : null;
@@ -240,6 +288,8 @@ export function useSpending() {
     currency,
     offerIndex: useMemo(() => (offers.data ? indexOffers(offers.data) : null), [offers.data]),
     priceSource,
+    priceOf,
+    upgradeToMax,
     /** Skins with an exact Riot price vs. ones priced by tier (only differs in "tier" mode). */
     exactCount: result?.priced.filter((p) => p.source === "offer").length ?? 0,
     tierCount: result?.priced.filter((p) => p.source === "tier").length ?? 0,

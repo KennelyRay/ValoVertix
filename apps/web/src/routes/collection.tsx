@@ -7,12 +7,24 @@ import { EmptyNote, ErrorNote, Switch, Tabs } from "@/components/ui/primitives";
 import { BundlesView, useBundles } from "@/features/collection/bundles";
 import { SkinDrawer } from "@/features/collection/skin-drawer";
 import { Dropdown } from "@/components/ui/dropdown";
+import { LoadoutView } from "@/features/collection/loadout";
 import { SkinGrid } from "@/features/collection/skin-grid";
+import { useWishlist } from "@/features/wishlist/wishlist-store";
+import { WishlistView } from "@/features/wishlist/wishlist-view";
 import { useCollectibles, useSpending } from "@/features/data";
 import { useSettings } from "@/features/settings-store";
 import { fmtInt } from "@/lib/format";
 
-type Tab = "skins" | "bundles" | "buddies" | "cards" | "sprays" | "titles" | "agents";
+type Tab =
+  | "skins"
+  | "bundles"
+  | "loadout"
+  | "wishlist"
+  | "buddies"
+  | "cards"
+  | "sprays"
+  | "titles"
+  | "agents";
 type PriceFilter = "any" | "lt1000" | "1000to1999" | "gte2000" | "unpriced";
 type UpgradeFilter = "any" | "some" | "none";
 
@@ -268,10 +280,13 @@ function Collection() {
   const { owned } = useSpending();
   const c = useCollectibles();
   const { shown: bundleRows } = useBundles();
+  const wishCount = useWishlist((s) => s.ids.length);
   const count = (n: number | undefined | null) => (n == null ? "" : ` ${n}`);
   const tabs: { id: Tab; label: ReactNode }[] = [
     { id: "skins", label: `Skins${count(owned?.length)}` },
     { id: "bundles", label: `Bundles${count(bundleRows?.length)}` },
+    { id: "loadout", label: "Loadout" },
+    { id: "wishlist", label: `Wishlist${count(wishCount)}` },
     { id: "buddies", label: `Buddies${count(c.buddies?.length)}` },
     { id: "cards", label: `Cards${count(c.cards?.length)}` },
     { id: "sprays", label: `Sprays${count(c.sprays?.length)}` },
@@ -282,13 +297,15 @@ function Collection() {
     <>
       <Tabs label="Collection type" value={tab} onChange={setTab} tabs={tabs} />
       <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="mt-5">
-        {c.errors.length > 0 && tab !== "skins" && tab !== "bundles" && (
+        {c.errors.length > 0 && !["skins", "bundles", "loadout", "wishlist"].includes(tab) && (
           <p className="mb-3 text-sm text-muted">
             Some of your items didn't load: {c.errors.join(", ")}.
           </p>
         )}
         {tab === "skins" && <Skins />}
         {tab === "bundles" && <BundlesView />}
+        {tab === "loadout" && <LoadoutView />}
+        {tab === "wishlist" && <WishlistView />}
         {tab === "buddies" && <ItemGrid items={c.buddies} image={(b) => b.displayIcon} />}
         {tab === "cards" && <ItemGrid wide items={c.cards} image={(x) => x.wideArt} />}
         {tab === "sprays" && (

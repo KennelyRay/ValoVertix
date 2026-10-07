@@ -4,7 +4,7 @@ import type { MatchSummary, MoneyRange, RankSnapshot, SpendingResult } from "@va
 import { OFFICIAL_DOMAIN } from "@/config/app";
 import { apiColor, fmtDec, fmtInt, fmtMoney, fmtPct, fmtVp, titleCase } from "@/lib/format";
 
-export type Template = "locker" | "spending" | "profile" | "rank";
+export type Template = "locker" | "spending" | "profile" | "rank" | "loadout";
 export const SIZES = {
   square: { w: 1080, h: 1080, label: "Square 1080 × 1080" },
   story: { w: 1080, h: 1920, label: "Story 1080 × 1920" },
@@ -18,7 +18,19 @@ export const SKIN_SLOTS: Record<Template, Record<SizeKey, number>> = {
   spending: { square: 3, story: 4, wide: 3 },
   profile: { square: 0, story: 0, wide: 0 },
   rank: { square: 0, story: 0, wide: 0 },
+  loadout: { square: 0, story: 0, wide: 0 },
 };
+
+/** Equipped weapons shown on the loadout card at each size. */
+export const LOADOUT_SLOTS: Record<SizeKey, number> = { square: 12, story: 21, wide: 8 };
+
+export interface CardGun {
+  key: string;
+  weapon: string;
+  skin: string;
+  image: string | null;
+  color: string | undefined;
+}
 
 export interface CardSkin {
   skin: CatalogSkin;
@@ -44,6 +56,10 @@ export interface CardData {
   peak: { tier: number } | null;
   tiers: Map<number, CompetitiveTier>;
   recent: MatchSummary[];
+  /** Equipped skins that fit the card (standard skins left out), in in-game order. */
+  loadout: CardGun[];
+  /** All equipped non-standard skins, including ones that didn't fit. */
+  loadoutCount: number;
 }
 
 const RED = "#ff4d5e";
@@ -687,6 +703,76 @@ function Rank({ size, data }: { size: SizeKey; data: CardData }) {
   );
 }
 
+function Loadout({ size, data }: { size: SizeKey; data: CardData }) {
+  const wide = size === "wide";
+  const guns = data.loadout.slice(0, LOADOUT_SLOTS[size]);
+  return (
+    <Frame size={size} data={data} label="Loadout">
+      <div className="flex items-end justify-between" style={{ gap: 24 }}>
+        <Heading data={data} fallback="My loadout" size={size} />
+        <div className="shrink-0 text-right">
+          <p className="display-xl tabular-nums" style={{ fontSize: wide ? 64 : 96 }}>
+            {fmtInt(data.loadoutCount)}
+          </p>
+          <p
+            className="font-display font-semibold uppercase text-muted"
+            style={{ fontSize: wide ? 16 : 22, letterSpacing: "0.1em" }}
+          >
+            Skins equipped
+          </p>
+        </div>
+      </div>
+      <div
+        className="grid min-h-0 flex-1"
+        style={{
+          marginTop: wide ? 18 : 40,
+          gap: wide ? 10 : 16,
+          gridTemplateColumns: `repeat(${size === "story" ? 3 : 4}, minmax(0, 1fr))`,
+          gridAutoRows: "1fr",
+        }}
+      >
+        {guns.map((g) => (
+          <div
+            key={g.key}
+            className="relative flex min-h-0 flex-col overflow-hidden"
+            style={{
+              background: "rgba(22,27,34,0.85)",
+              border: `2px solid ${LINE}`,
+              padding: wide ? 10 : 16,
+            }}
+          >
+            <p
+              className="font-display font-semibold uppercase text-muted"
+              style={{ fontSize: wide ? 13 : 17, letterSpacing: "0.1em" }}
+            >
+              {g.weapon}
+            </p>
+            <Img
+              src={g.image}
+              className="mx-auto min-h-0 w-full flex-1 object-contain"
+              style={{ filter: "drop-shadow(0 10px 12px rgba(0,0,0,0.55))", padding: "6px 0" }}
+            />
+            <p className="truncate font-semibold" style={{ fontSize: wide ? 15 : 20 }}>
+              {g.skin}
+            </p>
+            <div
+              aria-hidden
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: 5,
+                background: g.color ?? "#4a5260",
+              }}
+            />
+          </div>
+        ))}
+      </div>
+    </Frame>
+  );
+}
+
 export const ShareCard = forwardRef<
   HTMLDivElement,
   { template: Template; size: SizeKey; data: CardData }
@@ -696,6 +782,7 @@ export const ShareCard = forwardRef<
     {template === "spending" && <Spending size={size} data={data} />}
     {template === "profile" && <Profile size={size} data={data} />}
     {template === "rank" && <Rank size={size} data={data} />}
+    {template === "loadout" && <Loadout size={size} data={data} />}
   </div>
 ));
 ShareCard.displayName = "ShareCard";

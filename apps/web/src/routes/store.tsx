@@ -12,6 +12,8 @@ import { currencyConfig, useOwned, useOwnedSkins, useStatic, useStorefront } fro
 import { useStoreItems, type StoreItem } from "@/features/store/use-store-items";
 import { cn } from "@/lib/cn";
 import { apiColor, fmtMoney, fmtPct, fmtTimeLeft, fmtVp } from "@/lib/format";
+import { useWishlistHits } from "@/features/wishlist/use-wishlist-hits";
+import { WishlistShopNotice } from "@/features/wishlist/wishlist-view";
 
 /** "Resets in 9h 20m", ticking. `endsAt` is absolute (fetch time + Riot's remaining seconds). */
 function TimeLeft({ endsAt, label }: { endsAt: number | null; label: string }) {
@@ -348,6 +350,7 @@ function Store() {
     return () => setDrawer({ owned, vp });
   };
   const resolve = useStoreItems();
+  const { hits: wishHits } = useWishlistHits();
   const ownedLevels = useOwned("skinLevel");
   const owned = useMemo(() => new Set(ownedLevels.data ?? []), [ownedLevels.data]);
   const now = useNow();
@@ -384,6 +387,7 @@ function Store() {
   const props: StoreProps = { sf: storefront.data, endsAt, resolve, owned, openSkin };
   return (
     <div className="space-y-12">
+      <WishlistShopNotice hits={wishHits} />
       <p className="flex flex-wrap items-center gap-2 text-sm text-muted">
         VP prices come straight from Riot. Peso amounts are <EstimateTag /> based on standard PH VP
         pack prices.

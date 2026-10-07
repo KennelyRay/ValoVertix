@@ -1,13 +1,13 @@
 import { useDeferredValue, useId, useMemo, useState } from "react";
 import type { CatalogSkin, ContentTier } from "@valovertix/assets";
-import { groupByCollection } from "@valovertix/calc";
+import { groupByCollection, vpToMoneyRange } from "@valovertix/calc";
 import { LoadingBlock } from "@/components/shared";
 import { Dropdown } from "@/components/ui/dropdown";
-import { Dialog, EmptyNote, ErrorNote, Switch } from "@/components/ui/primitives";
+import { Dialog, EmptyNote, ErrorNote, EstimateTag, Switch } from "@/components/ui/primitives";
 import { useSettings } from "@/features/settings-store";
-import { useOwnedSkins, useStatic } from "@/features/data";
+import { useSpending, useStatic } from "@/features/data";
 import { cn } from "@/lib/cn";
-import { apiColor, fmtInt, fmtPct } from "@/lib/format";
+import { apiColor, fmtInt, fmtMoney, fmtPct, fmtVp } from "@/lib/format";
 
 type Sort = "complete" | "owned" | "name";
 type Show = "all" | "complete" | "incomplete";
@@ -22,6 +22,10 @@ interface BundleRow {
   total: number;
   /** Every skin is a battle pass, contract or no-tier reward: nothing was bought. */
   free: boolean;
+  /** VP to buy the missing skins at today's single-item prices, and how many have no price. */
+  missingVp: number;
+  missingUnpriced: number;
+  priceById: Map<string, number>;
 }
 
 /**
@@ -30,7 +34,7 @@ interface BundleRow {
  * name for its art. Progress counts weapon skins only.
  */
 export function useBundles() {
-  const { catalog, owned, tierById, themeById, isPending, error } = useOwnedSkins();
+  const { catalog, owned, tierById, themeById, isPending, error, priceOf } = useSpending();
   const bundles = useStatic("bundles");
 
   const rows = useMemo<BundleRow[] | null>(() => {
@@ -41,12 +45,28 @@ export function useBundles() {
     return groupByCollection(catalog.skins, owned).map((g) => {
       const name = themeById.get(g.themeId)?.displayName ?? "Unnamed collection";
       const bundle = bundleByName.get(name.trim().toLowerCase());
+      const ownedIds = new Set(g.owned.map((o) => o.skin.uuid));
+      const priceById = new Map<string, number>();
+      let missingVp = 0;
+      let missingUnpriced = 0;
+      for (const s of g.skins) {
+        if (ownedIds.has(s.uuid)) continue;
+        const vp = priceOf(s);
+        if (vp === undefined) missingUnpriced += 1;
+        else {
+          priceById.set(s.uuid, vp);
+          missingVp += vp;
+        }
+      }
       return {
         themeId: g.themeId,
         name,
         art: bundle?.displayIcon ?? null,
         skins: [...g.skins].sort((a, b) => a.weaponName.localeCompare(b.weaponName)),
-        ownedIds: new Set(g.owned.map((o) => o.skin.uuid)),
+        ownedIds,
+        missingVp,
+        missingUnpriced,
+        priceById,
         ownedCount: g.owned.length,
         total: Math.max(g.skins.length, g.owned.length),
         free: (g.skins.length ? g.skins : g.owned.map((o) => o.skin)).every(
@@ -54,7 +74,7 @@ export function useBundles() {
         ),
       };
     });
-  }, [catalog, owned, bundles.data, themeById]);
+  }, [catalog, owned, bundles.data, themeById, priceOf]);
 
   const hideFree = useSettings((s) => s.hideFreeBundles);
   const shown = useMemo(
@@ -111,6 +131,50 @@ function Progress({ owned, total }: { owned: number; total: number }) {
   );
 }
 
+/** "About 3,550 VP to complete", or nothing once complete. */
+function CostToComplete({ row, detailed = false }: { row: BundleRow; detailed?: boolean }) {
+  const { currency } = useSpending();
+  if (row.ownedCount >= row.total) return null;
+  const missing = row.total - row.ownedCount;
+  if (!row.missingVp) {
+    return detailed ? (
+      <p className="text-sm text-muted">
+        The missing {missing === 1 ? "skin has" : `${missing} skins have`} no store price, so
+        there's no cost to show.
+      </p>
+    ) : null;
+  }
+  if (!detailed) {
+    return (
+      <p className="flex flex-wrap items-center gap-2 text-sm text-muted">
+        <span>
+          To complete: <span className="font-semibold text-text">{fmtVp(row.missingVp)}</span>
+        </span>
+        <EstimateTag />
+      </p>
+    );
+  }
+  return (
+    <div className="border-l-2 border-accent bg-raised px-4 py-3">
+      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted">
+        Cost to complete <EstimateTag />
+      </p>
+      <p className="mt-1 font-display text-3xl font-bold tabular-nums">{fmtVp(row.missingVp)}</p>
+      <p className="text-sm text-muted tabular-nums">
+        {fmtMoney(vpToMoneyRange(row.missingVp, currency.rate), currency.format)} for{" "}
+        {missing - row.missingUnpriced} missing{" "}
+        {missing - row.missingUnpriced === 1 ? "skin" : "skins"} at single-item prices
+      </p>
+      {row.missingUnpriced > 0 && (
+        <p className="mt-1 text-xs text-muted">
+          {row.missingUnpriced} more {row.missingUnpriced === 1 ? "has" : "have"} no store price and
+          {row.missingUnpriced === 1 ? " isn't" : " aren't"} counted.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function BundleDetail({ row, tierById }: { row: BundleRow; tierById: Map<string, ContentTier> }) {
   return (
     <div className="space-y-5">
@@ -118,6 +182,7 @@ function BundleDetail({ row, tierById }: { row: BundleRow; tierById: Map<string,
         <img src={row.art} alt="" className="aspect-[16/7] w-full bg-raised object-cover" />
       )}
       <Progress owned={row.ownedCount} total={row.total} />
+      <CostToComplete row={row} detailed />
       <ul className="divide-y divide-line border-y border-line">
         {row.skins.map((s) => {
           const has = row.ownedIds.has(s.uuid);
@@ -148,9 +213,17 @@ function BundleDetail({ row, tierById }: { row: BundleRow; tierById: Map<string,
                 </p>
               </div>
               <span
-                className={cn("shrink-0 text-xs font-semibold", has ? "text-win" : "text-muted")}
+                className={cn(
+                  "shrink-0 text-right text-xs font-semibold",
+                  has ? "text-win" : "text-muted",
+                )}
               >
                 {has ? "Owned" : "Not owned"}
+                {!has && row.priceById.has(s.uuid) && (
+                  <span className="block font-normal tabular-nums">
+                    {fmtVp(row.priceById.get(s.uuid)!)}
+                  </span>
+                )}
               </span>
             </li>
           );
@@ -295,6 +368,7 @@ export function BundlesView() {
                 <div className="flex flex-1 flex-col gap-3 p-4">
                   <p className="display-xl truncate text-2xl">{r.name}</p>
                   <Progress owned={r.ownedCount} total={r.total} />
+                  <CostToComplete row={r} />
                 </div>
               </button>
             </li>

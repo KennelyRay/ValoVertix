@@ -145,3 +145,36 @@ export const pricedRatio = (result: Pick<SpendingResult, "priced" | "unpriced">)
   const total = result.priced.length + result.unpriced.length;
   return total === 0 ? 0 : result.priced.length / total;
 };
+
+/** Radianite still needed to unlock every level and chroma of an owned skin. */
+export function radianiteToMax(owned: OwnedSkin, offers: OfferIndex, radianiteId: string) {
+  const have = new Set([...owned.levelIds, ...owned.chromaIds].map((id) => id.toLowerCase()));
+  const missing = [...owned.skin.levels.slice(1), ...owned.skin.chromas.slice(1)]
+    .map((x) => x.uuid.toLowerCase())
+    .filter((id) => !have.has(id));
+  let total = 0;
+  let items = 0;
+  for (const id of missing) {
+    const cost = offers.get(id)?.[radianiteId];
+    if (cost !== undefined && cost > 0) {
+      total += cost;
+      items += 1;
+    }
+  }
+  return { total, items };
+}
+
+/** Store VP price of a skin's base level, else the fallback (never for contract rewards). */
+export function skinPriceVp<S extends SkinRef>(
+  skin: S,
+  offers: OfferIndex,
+  vpId: string,
+  fallbackVp?: (skin: S) => number | undefined,
+): number | undefined {
+  const base = skin.levels[0]?.uuid.toLowerCase();
+  const vp = base ? offers.get(base)?.[vpId] : undefined;
+  if (vp !== undefined && vp > 0) return vp;
+  if (skin.isContractReward) return undefined;
+  const fallback = fallbackVp?.(skin);
+  return fallback !== undefined && fallback > 0 ? fallback : undefined;
+}

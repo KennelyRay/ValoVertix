@@ -130,6 +130,7 @@ function Spending() {
     error,
     agentsAvailable,
     priceSource,
+    upgradeToMax,
     exactCount,
     tierCount,
   } = useSpending();
@@ -210,7 +211,14 @@ function Spending() {
             <p className="mt-2 text-sm text-muted">
               Range: largest-pack rate to smallest-pack rate
             </p>
-            <dl className="mt-5 grid border-t border-line pt-2 sm:grid-cols-3">
+            <dl
+              className={cn(
+                "mt-5 grid border-t border-line pt-2",
+                upgradeToMax
+                  ? "sm:grid-cols-2 sm:[&>div:nth-child(odd)]:border-l-0 sm:[&>div:nth-child(odd)]:pl-0"
+                  : "sm:grid-cols-3",
+              )}
+            >
               <HeroCell
                 label={
                   <>
@@ -241,6 +249,21 @@ function Spending() {
                       : "No priced upgrades found"
                 }
               />
+              {upgradeToMax && (
+                <HeroCell
+                  label={
+                    <>
+                      To max upgrades <EstimateTag />
+                    </>
+                  }
+                  value={`${fmtInt(upgradeToMax.total)} RP`}
+                  note={
+                    upgradeToMax.items
+                      ? `${upgradeToMax.items} levels and variants you don't own yet`
+                      : "Everything you own is fully upgraded"
+                  }
+                />
+              )}
               <HeroCell
                 label="Skins counted"
                 value={`${fmtInt(spending.priced.length)} / ${fmtInt(spending.priced.length + spending.unpriced.length)}`}

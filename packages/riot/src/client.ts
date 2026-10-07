@@ -161,7 +161,8 @@ export function createRiotClient(session: RiotSession, f?: FetchLike) {
           }
           throw err;
         })
-        .then((r) => r.Identity),
+        // Identity fields at the top level (card, title, level) plus the equipped guns.
+        .then((r) => ({ ...r.Identity, Guns: r.Guns ?? [] })),
     accountXp: (signal?: AbortSignal) =>
       pd("player.xp", PD_PATHS.accountXp(puuid), accountXpSchema, { signal }).then(
         (r) => r.Progress,

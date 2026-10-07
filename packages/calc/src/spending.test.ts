@@ -6,7 +6,14 @@ import {
   resolveOwnedSkins,
   upgradeCount,
 } from "./collection";
-import { AGENT_UNLOCK_VP, computeSpending, pricedRatio, radianiteForSkin } from "./spending";
+import {
+  AGENT_UNLOCK_VP,
+  computeSpending,
+  pricedRatio,
+  radianiteForSkin,
+  radianiteToMax,
+  skinPriceVp,
+} from "./spending";
 import type { SkinRef } from "./types";
 
 const VP = "vp";
@@ -236,5 +243,38 @@ describe("groupByCollection", () => {
     expect(groups[0]!.themeId).toBe("reaver");
     expect(groups[0]!.skins.map((s) => s.uuid)).toEqual(["a1", "a2", "a3"]);
     expect(groups[0]!.owned.map((o) => o.skin.uuid)).toEqual(["a1", "a3"]);
+  });
+});
+
+describe("radianiteToMax and skinPriceVp", () => {
+  const s = skin("a");
+  const offers = indexOffers([
+    offer("a-l1", { [VP]: 1775 }),
+    offer("A-L2", { [RAD]: 10 }),
+    offer("a-l3", { [RAD]: 15 }),
+    offer("a-c1", { [RAD]: 15 }),
+    offer("a-c2", { [RAD]: 0 }),
+  ]);
+
+  it("prices only the levels and chromas not owned yet", () => {
+    expect(
+      radianiteToMax({ skin: s, levelIds: ["a-l1", "A-L2"], chromaIds: [] }, offers, RAD),
+    ).toEqual({
+      total: 30,
+      items: 2,
+    });
+    const maxed = { skin: s, levelIds: ["a-l1", "a-l2", "a-l3"], chromaIds: ["a-c1", "a-c2"] };
+    expect(radianiteToMax(maxed, offers, RAD)).toEqual({ total: 0, items: 0 });
+  });
+
+  it("uses the store price, then the fallback, never for contract rewards", () => {
+    expect(skinPriceVp(s, offers, VP)).toBe(1775);
+    expect(skinPriceVp(skin("b"), offers, VP, () => 875)).toBe(875);
+    expect(skinPriceVp(skin("b"), offers, VP, () => 0)).toBeUndefined();
+    expect(skinPriceVp(skin("b"), offers, VP)).toBeUndefined();
+    expect(
+      skinPriceVp(skin("c", { isContractReward: true }), offers, VP, () => 875),
+    ).toBeUndefined();
+    expect(skinPriceVp(skin("d", { levels: [] }), offers, VP)).toBeUndefined();
   });
 });
