@@ -14,6 +14,7 @@ import { WishlistView } from "@/features/wishlist/wishlist-view";
 import { useCollectibles, useSpending } from "@/features/data";
 import { useSettings } from "@/features/settings-store";
 import { fmtInt } from "@/lib/format";
+import { useRememberedTab } from "@/lib/use-remembered-tab";
 
 type Tab =
   | "skins"
@@ -275,8 +276,20 @@ function ItemGrid<T extends { uuid: string; displayName: string }>({
   );
 }
 
+const COLLECTION_TABS: readonly Tab[] = [
+  "skins",
+  "bundles",
+  "loadout",
+  "wishlist",
+  "buddies",
+  "cards",
+  "sprays",
+  "titles",
+  "agents",
+];
+
 function Collection() {
-  const [tab, setTab] = useState<Tab>("skins");
+  const [tab, setTab] = useRememberedTab<Tab>("collection", "skins", COLLECTION_TABS);
   const { owned } = useSpending();
   const c = useCollectibles();
   const { shown: bundleRows } = useBundles();

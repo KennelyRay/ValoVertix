@@ -18,6 +18,7 @@ import { MatchDialog } from "@/features/stats/match-dialog";
 import { RankChart } from "@/features/stats/rank-chart";
 import { SessionCard } from "@/features/stats/session-card";
 import { cn } from "@/lib/cn";
+import { useRememberedTab } from "@/lib/use-remembered-tab";
 import { apiColor, fmtDateTime, fmtDec, fmtPct, queueName, titleCase } from "@/lib/format";
 
 const EYEBROW = "text-xs font-semibold uppercase tracking-[0.2em] text-muted";
@@ -483,10 +484,11 @@ function Session() {
 }
 
 type Tab = "matches" | "agents" | "weapons" | "maps" | "rank";
+const STATS_TABS: readonly Tab[] = ["matches", "agents", "weapons", "maps", "rank"];
 
 function Career() {
   const [count, setCount] = useState(MATCH_DETAILS_PAGE);
-  const [tab, setTab] = useState<Tab>("matches");
+  const [tab, setTab] = useRememberedTab<Tab>("stats", "matches", STATS_TABS);
   const [openMatch, setOpenMatch] = useState<string | null>(null);
   const { history, ids, details, aggregate, mapByUrl, agentById } = useMatchStats(count);
   const { tiers } = useRanks();

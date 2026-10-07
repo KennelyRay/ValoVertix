@@ -1,15 +1,16 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useExpiryWatcher } from "@/features/auth/actions";
 import { useSettings } from "@/features/settings-store";
 import { cn } from "@/lib/cn";
 import { Backdrop } from "./backdrop";
+import { KeyboardShortcuts } from "./keyboard-shortcuts";
 import { BrandMark, SiteNav } from "./site-nav";
 import { PageTransition } from "./motion";
 import { StatusBanners } from "./status-banners";
 import { Toaster } from "./toast";
 
-function Footer() {
+function Footer({ onShortcuts }: { onShortcuts: () => void }) {
   return (
     <footer className="mt-16 border-t border-line">
       <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-6 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
@@ -30,6 +31,13 @@ function Footer() {
           <Link to="/terms" className="inline-flex min-h-11 items-center px-2 hover:text-text">
             Terms
           </Link>
+          <button
+            type="button"
+            onClick={onShortcuts}
+            className="inline-flex min-h-11 items-center px-2 hover:text-text max-sm:hidden"
+          >
+            Keyboard shortcuts
+          </button>
         </nav>
       </div>
     </footer>
@@ -40,6 +48,7 @@ export function AppShell() {
   useExpiryWatcher();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const motion = useSettings((s) => s.motion);
+  const [shortcuts, setShortcuts] = useState(false);
   useEffect(() => {
     document.documentElement.dataset.motion = motion;
   }, [motion]);
@@ -66,7 +75,8 @@ export function AppShell() {
           <Outlet />
         </PageTransition>
       </main>
-      <Footer />
+      <Footer onShortcuts={() => setShortcuts(true)} />
+      <KeyboardShortcuts open={shortcuts} setOpen={setShortcuts} />
       <Toaster />
     </div>
   );

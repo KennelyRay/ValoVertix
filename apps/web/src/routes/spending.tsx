@@ -9,6 +9,7 @@ import { useSpending } from "@/features/data";
 import { useSettings } from "@/features/settings-store";
 import { EstimateInfo, TierPriceNote } from "@/features/spending/estimate-notes";
 import { cn } from "@/lib/cn";
+import { useRememberedTab } from "@/lib/use-remembered-tab";
 import { apiColor, fmtInt, fmtMoney, fmtPct, fmtVp } from "@/lib/format";
 
 type BreakdownTab = "tier" | "weapon" | "theme";
@@ -136,7 +137,11 @@ function Spending() {
   } = useSpending();
   const includeAgents = useSettings((s) => s.includeAgents);
   const setSettings = useSettings((s) => s.set);
-  const [tab, setTab] = useState<BreakdownTab>("tier");
+  const [tab, setTab] = useRememberedTab<BreakdownTab>("spending", "tier", [
+    "tier",
+    "weapon",
+    "theme",
+  ]);
   const [showUnpriced, setShowUnpriced] = useState(false);
 
   if (isPending) return <LoadingBlock label="Loading prices and your inventory" />;

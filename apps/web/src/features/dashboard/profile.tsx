@@ -6,6 +6,7 @@ import { accountLabel } from "@/features/auth/account-bar";
 import { useActiveSession } from "@/features/auth/session-store";
 import { useAccountXp, useLoadout, useRanks, useStatic } from "@/features/data";
 import { cn } from "@/lib/cn";
+import { DataFreshness } from "@/features/data-freshness";
 
 /** Everything the profile needs: equipped card and title, level and its border. */
 export function useProfile() {
@@ -174,6 +175,7 @@ export function IdentityHeader() {
             "Loading level…"
           )}
         </p>
+        <DataFreshness className="mt-2" />
       </div>
       <dl className="flex flex-wrap gap-x-8 gap-y-4">
         <div>

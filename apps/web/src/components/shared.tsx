@@ -3,13 +3,13 @@ import { m } from "framer-motion";
 import { useNavigate } from "@tanstack/react-router";
 import type { CompetitiveTier } from "@valovertix/assets";
 import { useActiveSession, useSessionStore } from "@/features/auth/session-store";
-import { SignInPanel } from "@/features/auth/sign-in-panel";
 import { startDemo } from "@/features/auth/actions";
 import { cn } from "@/lib/cn";
 import { titleCase } from "@/lib/format";
+import { DataFreshness } from "@/features/data-freshness";
+import { SignedOut } from "./signed-out";
 import { toast } from "./toast";
 import { Button } from "./ui/button";
-import { Panel } from "./ui/primitives";
 
 export function PageHeader({
   title,
@@ -26,7 +26,10 @@ export function PageHeader({
         <h1 className="text-4xl sm:text-5xl">{title}</h1>
         {children && <div className="mt-1 max-w-2xl text-muted">{children}</div>}
       </div>
-      {actions}
+      <div className="flex flex-wrap items-center gap-3">
+        {actions}
+        <DataFreshness />
+      </div>
     </div>
   );
 }
@@ -72,22 +75,7 @@ export function RequireSession({ title, children }: { title: string; children: R
   const booting = useSessionStore((s) => s.booting);
   if (session) return <>{children}</>;
   if (booting) return <LoadingBlock label={`Loading ${title}`} className="py-6" />;
-  return (
-    <div className="grid gap-8 py-6 lg:grid-cols-[1fr_28rem]">
-      <div>
-        <h1 className="text-4xl sm:text-5xl">{title}</h1>
-        <p className="mt-2 max-w-lg text-muted">
-          Connect a Riot account to see this page, or look around with the demo account first.
-        </p>
-        <div className="mt-6">
-          <DemoButton />
-        </div>
-      </div>
-      <Panel>
-        <SignInPanel compact />
-      </Panel>
-    </div>
-  );
+  return <SignedOut title={title} />;
 }
 
 export function StatTile({

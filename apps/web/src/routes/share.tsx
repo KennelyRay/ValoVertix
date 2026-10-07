@@ -24,6 +24,7 @@ import {
 } from "@/features/share/cards";
 import { downloadBlob, exportPng } from "@/features/share/export";
 import { cn } from "@/lib/cn";
+import { useRememberedTab } from "@/lib/use-remembered-tab";
 import { apiColor } from "@/lib/format";
 
 /** Which equipped skins make the loadout card when not all fit: the most-used guns first. */
@@ -168,7 +169,11 @@ function SkinPicker({
 
 function Share() {
   const session = useActiveSession()!;
-  const [template, setTemplate] = useState<Template>("locker");
+  const [template, setTemplate] = useRememberedTab<Template>(
+    "share",
+    "locker",
+    TEMPLATES.map((x) => x.id),
+  );
   const [size, setSize] = useState<SizeKey>("square");
   const [background, setBackground] = useState<Background>("card");
   const [mode, setMode] = useState<SkinMode>("value");

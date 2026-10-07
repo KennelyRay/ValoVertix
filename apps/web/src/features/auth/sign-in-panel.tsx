@@ -22,9 +22,12 @@ import { useSessionStore } from "./session-store";
 export function SignInPanel({
   onDone,
   compact = false,
+  redirectTo = "/dashboard",
 }: {
   onDone?: () => void;
   compact?: boolean;
+  /** Where to go after connecting, e.g. back to the page whose sign-in expired. */
+  redirectTo?: string;
 }) {
   const navigate = useNavigate();
   const addSession = useSessionStore((s) => s.addSession);
@@ -57,7 +60,7 @@ export function SignInPanel({
         result.session.riotId ? `Signed in as ${result.session.riotId.gameName}` : "Signed in",
       );
       onDone?.();
-      void navigate({ to: "/dashboard" });
+      void navigate({ to: redirectTo });
     } catch (err) {
       setPendingTokens(null);
       setError(connectErrorMessage(err));

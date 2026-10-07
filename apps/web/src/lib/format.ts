@@ -72,3 +72,12 @@ export function fmtTimeLeft(ms: number): string {
   if (h > 0) return `${h}h ${m}m`;
   return fmtCountdown(ms);
 }
+
+/** "just now", "3 min ago", "2 h ago". */
+export function fmtAgo(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000));
+  if (s < 45) return "just now";
+  const min = Math.round(s / 60);
+  if (min < 60) return `${min} min ago`;
+  return `${Math.round(min / 60)} h ago`;
+}

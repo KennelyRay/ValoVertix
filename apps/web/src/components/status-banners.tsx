@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useRouterState } from "@tanstack/react-router";
 import {
   SHARDS,
   SHARD_LABELS,
@@ -183,6 +184,8 @@ function RegionFix({ sessionId, current }: { sessionId: string; current: Shard }
   );
 }
 
+const APP_PATHS = ["/dashboard", "/store", "/spending", "/stats", "/collection", "/share"];
+
 export function StatusBanners() {
   const session = useActiveSession();
   const signedOutReason = useSessionStore((s) => s.signedOutReason);
@@ -191,12 +194,14 @@ export function StatusBanners() {
   const client = useQueryClient();
   const [drift, setDrift] = useState(false);
   const [signInOpen, setSignInOpen] = useState(false);
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   useEffect(() => onSchemaDrift(() => setDrift(true)), []);
 
   const banners: ReactNode[] = [];
 
-  if (signedOutReason) {
+  // App pages explain an ended sign-in themselves (see SignedOut); elsewhere, a banner does.
+  if (signedOutReason && (session || !APP_PATHS.some((a) => pathname.startsWith(a)))) {
     banners.push(
       <Banner
         key="signed-out"

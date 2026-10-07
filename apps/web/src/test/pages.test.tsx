@@ -426,6 +426,27 @@ describe("error handling", () => {
       await screen.findByText(/Riot stopped accepting this sign-in/, {}, { timeout: 8000 }),
     ).toBeInTheDocument();
     expect(useSessionStore.getState().sessions).toHaveLength(0);
+    // The page itself explains it (no duplicate banner) and offers to reconnect in place.
+    expect(screen.getByRole("heading", { level: 1, name: "Sign-in ended" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Reconnect" })).toBeInTheDocument();
+    expect(screen.getAllByText(/Riot stopped accepting this sign-in/)).toHaveLength(1);
+  });
+
+  it("an expired sign-in shows the timed-out page, and a banner elsewhere", async () => {
+    renderApp("/stats");
+    await screen.findByRole("heading", { level: 1 }, { timeout: 8000 });
+    await useSessionStore.getState().endSession(useSessionStore.getState().activeId!, "expired");
+    expect(await screen.findByRole("heading", { level: 1, name: "Timed out" })).toBeInTheDocument();
+    expect(screen.getByText("Stats needs a fresh sign-in")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sign in again" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the signed-out banner on pages that are not account pages", async () => {
+    useSessionStore.setState({ signedOutReason: "expired", sessions: [], activeId: null });
+    renderApp("/guide");
+    expect(
+      await screen.findByText(/Your Riot sign-in expired/, {}, { timeout: 8000 }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sign in again" })).toBeInTheDocument();
   });
 

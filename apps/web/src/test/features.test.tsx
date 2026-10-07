@@ -170,3 +170,51 @@ describe("spending extras", () => {
     expect(screen.getByText(/levels and variants you don't own yet/)).toBeInTheDocument();
   });
 });
+
+describe("polish", () => {
+  it("remembers the last tab on a page", async () => {
+    const user = userEvent.setup();
+    const first = renderApp("/collection");
+    await user.click(await screen.findByRole("tab", { name: "Loadout" }, { timeout: 8000 }));
+    first.unmount();
+    renderApp("/collection");
+    expect(await screen.findByRole("tab", { name: "Loadout" }, { timeout: 8000 })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  });
+
+  it("moves between pages with g-shortcuts and lists them on ?", async () => {
+    const user = userEvent.setup();
+    const { router } = renderApp("/dashboard");
+    await screen.findByRole("heading", { level: 1 }, { timeout: 8000 });
+    await user.keyboard("gt");
+    await waitFor(() => expect(router.state.location.pathname).toBe("/stats"));
+    await user.keyboard("?");
+    const dialog = await screen.findByRole("dialog", { name: "Keyboard shortcuts" });
+    expect(within(dialog).getByText("Go to Collection")).toBeInTheDocument();
+  });
+
+  it("ignores shortcuts while typing", async () => {
+    const user = userEvent.setup();
+    const { router } = renderApp("/collection");
+    const search = await screen.findByLabelText("Search by name", {}, { timeout: 8000 });
+    await user.type(search, "gt");
+    expect(router.state.location.pathname).toBe("/collection");
+  });
+
+  it("shows when data was loaded and refreshes it", async () => {
+    const user = userEvent.setup();
+    let mmrCalls = 0;
+    server.events.on("request:start", ({ request }) => {
+      if (request.url.includes("/mmr/v1/players/") && !request.url.includes("competitiveupdates"))
+        mmrCalls += 1;
+    });
+    renderApp("/stats");
+    expect(await screen.findByText("Updated just now", {}, { timeout: 8000 })).toBeInTheDocument();
+    const before = mmrCalls;
+    await user.click(screen.getByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect(mmrCalls).toBeGreaterThan(before));
+    server.events.removeAllListeners();
+  });
+});

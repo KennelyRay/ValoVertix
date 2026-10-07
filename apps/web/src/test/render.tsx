@@ -38,6 +38,9 @@ export function resetApp() {
     showRiotIdOnShare: false,
   });
   useWishlist.setState({ ids: [] });
+  // Remembered tabs would leak between tests.
+  for (const k of Object.keys(localStorage))
+    if (k.startsWith("vv.tab.")) localStorage.removeItem(k);
 }
 
 export function renderApp(path: string) {
