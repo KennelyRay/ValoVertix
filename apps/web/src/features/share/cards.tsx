@@ -4,7 +4,7 @@ import type { MatchSummary, MoneyRange, RankSnapshot, SpendingResult } from "@va
 import { OFFICIAL_DOMAIN } from "@/config/app";
 import { apiColor, fmtDec, fmtInt, fmtMoney, fmtPct, fmtVp, titleCase } from "@/lib/format";
 
-export type Template = "locker" | "spending" | "profile" | "rank" | "loadout";
+export type Template = "locker" | "collection" | "spending" | "profile" | "rank" | "loadout";
 export const SIZES = {
   square: { w: 1080, h: 1080, label: "Square 1080 × 1080" },
   story: { w: 1080, h: 1920, label: "Story 1080 × 1920" },
@@ -15,6 +15,7 @@ export type SizeKey = keyof typeof SIZES;
 /** How many skins each template shows at each size. */
 export const SKIN_SLOTS: Record<Template, Record<SizeKey, number>> = {
   locker: { square: 9, story: 15, wide: 8 },
+  collection: { square: 16, story: 20, wide: 10 },
   spending: { square: 3, story: 4, wide: 3 },
   profile: { square: 0, story: 0, wide: 0 },
   rank: { square: 0, story: 0, wide: 0 },
@@ -60,9 +61,28 @@ export interface CardData {
   loadout: CardGun[];
   /** All equipped non-standard skins, including ones that didn't fit. */
   loadoutCount: number;
+  /** Style options. */
+  accent: string;
+  headline: string | null;
+  showPrices: boolean;
+  tilt: boolean;
+  showTierBar: boolean;
+  /** Collection template: this card's place in the set, and the paid-skin total. */
+  page: { index: number; total: number };
+  paidCount: number;
 }
 
-const RED = "#ff4d5e";
+export const ACCENTS = {
+  red: { label: "Red", color: "#ff4d5e" },
+  teal: { label: "Teal", color: "#3fd0c9" },
+  gold: { label: "Gold", color: "#e7c46a" },
+  violet: { label: "Violet", color: "#a98bff" },
+  white: { label: "White", color: "#ece8e1" },
+} as const;
+export type AccentKey = keyof typeof ACCENTS;
+
+const BRAND_RED = "#ff4d5e";
+const RED = "var(--card-accent)";
 const LINE = "rgba(74,82,96,0.85)";
 const tierName = (t: ContentTier | undefined) =>
   t?.displayName.replace(/ Edition$/, "") ?? "No tier";
@@ -142,7 +162,7 @@ function Frame({
   const pad = wide ? 52 : 76;
   return (
     <div
-      style={{ width: w, height: h }}
+      style={{ width: w, height: h, ["--card-accent" as string]: data.accent }}
       className="relative flex flex-col overflow-hidden bg-bg font-sans text-text"
     >
       <Img
@@ -205,7 +225,7 @@ function Frame({
               className="font-display font-bold italic"
               style={{ fontSize: wide ? 34 : 44, lineHeight: 1 }}
             >
-              Valo<span style={{ color: RED }}>Vertix</span>
+              Valo<span style={{ color: BRAND_RED }}>Vertix</span>
             </span>
           </div>
           <span
@@ -259,7 +279,7 @@ function Heading({ data, fallback, size }: { data: CardData; fallback: string; s
         className="display-xl truncate"
         style={{ fontSize: size === "wide" ? 60 : size === "story" ? 100 : 84 }}
       >
-        {data.riotId ?? fallback}
+        {data.headline ?? data.riotId ?? fallback}
       </p>
     </div>
   );
@@ -306,7 +326,10 @@ function SkinTile({ item, data, compact }: { item: CardSkin; data: CardData; com
       <Img
         src={item.skin.icon}
         className="mx-auto min-h-0 w-full flex-1 object-contain"
-        style={{ transform: "rotate(-6deg)", filter: "drop-shadow(0 12px 14px rgba(0,0,0,0.55))" }}
+        style={{
+          transform: data.tilt ? "rotate(-6deg)" : undefined,
+          filter: "drop-shadow(0 12px 14px rgba(0,0,0,0.55))",
+        }}
       />
       <div style={{ marginTop: 8 }}>
         <p className="truncate font-semibold" style={{ fontSize: compact ? 16 : 21 }}>
@@ -317,7 +340,9 @@ function SkinTile({ item, data, compact }: { item: CardSkin; data: CardData; com
           style={{ fontSize: compact ? 14 : 17, gap: 8 }}
         >
           <span className="truncate">{tierName(tier)}</span>
-          {item.vp !== undefined && <span className="shrink-0 tabular-nums">{fmtVp(item.vp)}</span>}
+          {data.showPrices && item.vp !== undefined && (
+            <span className="shrink-0 tabular-nums">{fmtVp(item.vp)}</span>
+          )}
         </p>
       </div>
       <div
@@ -353,9 +378,11 @@ function Locker({ size, data }: { size: SizeKey; data: CardData }) {
           </p>
         </div>
       </div>
-      <div style={{ marginTop: wide ? 14 : 32 }}>
-        <TierBar data={data} size={size} />
-      </div>
+      {data.showTierBar && (
+        <div style={{ marginTop: wide ? 14 : 32 }}>
+          <TierBar data={data} size={size} />
+        </div>
+      )}
       <div
         className="grid min-h-0 flex-1"
         style={{
@@ -369,6 +396,63 @@ function Locker({ size, data }: { size: SizeKey; data: CardData }) {
           <SkinTile key={s.skin.uuid} item={s} data={data} compact={wide} />
         ))}
       </div>
+    </Frame>
+  );
+}
+
+/** Every paid skin, one page of the set per card. */
+function Collection({ size, data }: { size: SizeKey; data: CardData }) {
+  const wide = size === "wide";
+  const story = size === "story";
+  const multi = data.page.total > 1;
+  return (
+    <Frame
+      size={size}
+      data={data}
+      label={multi ? `Collection ${data.page.index + 1}/${data.page.total}` : "Collection"}
+    >
+      <div className="flex items-end justify-between" style={{ gap: 24 }}>
+        <Heading data={data} fallback="My collection" size={size} />
+        <div className="shrink-0 text-right">
+          <p className="display-xl tabular-nums" style={{ fontSize: wide ? 60 : 92 }}>
+            {fmtInt(data.paidCount)}
+          </p>
+          <p
+            className="font-display font-semibold uppercase text-muted"
+            style={{ fontSize: wide ? 15 : 21, letterSpacing: "0.1em" }}
+          >
+            Paid skins
+          </p>
+        </div>
+      </div>
+      {data.showTierBar && !wide && (
+        <div style={{ marginTop: 26 }}>
+          <TierBar data={data} size={size} />
+        </div>
+      )}
+      <div
+        className="grid min-h-0 flex-1"
+        style={{
+          marginTop: wide ? 16 : 30,
+          gap: wide ? 10 : 14,
+          gridTemplateColumns: `repeat(${wide ? 5 : 4}, minmax(0, 1fr))`,
+          gridTemplateRows: `repeat(${wide ? 2 : story ? 5 : 4}, minmax(0, 1fr))`,
+        }}
+      >
+        {data.skins.map((s) => (
+          <SkinTile key={s.skin.uuid} item={s} data={data} compact />
+        ))}
+      </div>
+      {multi && (
+        <p
+          className="font-display font-semibold uppercase text-muted"
+          style={{ marginTop: wide ? 10 : 18, fontSize: wide ? 15 : 20, letterSpacing: "0.12em" }}
+        >
+          Card {data.page.index + 1} of {data.page.total} · skins{" "}
+          {fmtInt(data.page.index * SKIN_SLOTS.collection[size] + 1)} to{" "}
+          {fmtInt(Math.min(data.paidCount, (data.page.index + 1) * SKIN_SLOTS.collection[size]))}
+        </p>
+      )}
     </Frame>
   );
 }
@@ -779,6 +863,7 @@ export const ShareCard = forwardRef<
 >(({ template, size, data }, ref) => (
   <div ref={ref} data-share-card>
     {template === "locker" && <Locker size={size} data={data} />}
+    {template === "collection" && <Collection size={size} data={data} />}
     {template === "spending" && <Spending size={size} data={data} />}
     {template === "profile" && <Profile size={size} data={data} />}
     {template === "rank" && <Rank size={size} data={data} />}

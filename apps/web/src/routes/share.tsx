@@ -1,4 +1,12 @@
-import { useDeferredValue, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { CatalogSkin } from "@valovertix/assets";
 import { indexBy } from "@valovertix/assets";
 import { countBy } from "@valovertix/calc";
@@ -12,12 +20,15 @@ import { useEquippedGuns, type EquippedGun } from "@/features/collection/loadout
 import { useProfile } from "@/features/dashboard/profile";
 import { useMatchStats, useRanks, useSpending, useStatic, useStorefront } from "@/features/data";
 import { useSettings } from "@/features/settings-store";
+import { ShareLinkPanel } from "@/features/share/link-panel";
 import {
+  ACCENTS,
   SIZES,
   LOADOUT_SLOTS,
   SKIN_SLOTS,
   ShareCard,
   type CardData,
+  type AccentKey,
   type CardSkin,
   type SizeKey,
   type Template,
@@ -53,6 +64,7 @@ const LOADOUT_PRIORITY = [
 
 const TEMPLATES: { id: Template; label: string; text: string }[] = [
   { id: "locker", label: "Locker", text: "Your best skins in a grid" },
+  { id: "collection", label: "Collection", text: "Every paid skin, 20 per story card" },
   { id: "spending", label: "Spending", text: "Estimated value and top skins" },
   { id: "profile", label: "Profile", text: "Player card, rank and stats" },
   { id: "rank", label: "Rank", text: "Rank, RR and recent results" },
@@ -60,6 +72,7 @@ const TEMPLATES: { id: Template; label: string; text: string }[] = [
 ];
 
 type SkinMode = "value" | "tier" | "picked";
+type Order = "value" | "tier" | "weapon" | "name";
 
 function loadoutForCard(guns: EquippedGun[], slots: number) {
   const skinned = guns.filter((g) => !g.isDefault && g.skin);
@@ -179,6 +192,15 @@ function Share() {
   const [mode, setMode] = useState<SkinMode>("value");
   const [picked, setPicked] = useState<string[]>([]);
   const [picking, setPicking] = useState(false);
+  const [order, setOrder] = useState<Order>("value");
+  const [page, setPage] = useState(0);
+  const [accent, setAccent] = useState<AccentKey>("red");
+  const [headline, setHeadline] = useState("");
+  const [showPrices, setShowPrices] = useState(true);
+  const [tilt, setTilt] = useState(true);
+  const [showTierBar, setShowTierBar] = useState(true);
+  const [batch, setBatch] = useState<{ done: number; total: number } | null>(null);
+  const headlineId = useId();
   const showRiotId = useSettings((s) => s.showRiotIdOnShare);
   const setSettings = useSettings((s) => s.set);
   const [busy, setBusy] = useState(false);
@@ -218,10 +240,34 @@ function Share() {
     [sp.owned],
   );
 
+  const tierRank = useCallback(
+    (s: CatalogSkin) => (s.tierId ? (sp.tierById.get(s.tierId)?.rank ?? -1) : -1),
+    [sp.tierById],
+  );
+
+  // The Collection template: every paid skin, in the chosen order, split into cards.
+  const paidSorted = useMemo(() => {
+    const price = (s: CatalogSkin) => priceBySkin.get(s.uuid) ?? -1;
+    const list = [...showable];
+    if (order === "name") list.sort((a, b) => a.name.localeCompare(b.name));
+    else if (order === "weapon")
+      list.sort((a, b) => a.weaponName.localeCompare(b.weaponName) || a.name.localeCompare(b.name));
+    else if (order === "tier")
+      list.sort((a, b) => tierRank(b) - tierRank(a) || price(b) - price(a));
+    else list.sort((a, b) => price(b) - price(a) || tierRank(b) - tierRank(a));
+    return list;
+  }, [showable, order, priceBySkin, tierRank]);
+  const pageCount = Math.max(1, Math.ceil(paidSorted.length / SKIN_SLOTS.collection[size]));
+  const pageIndex = Math.min(page, pageCount - 1);
+
   const cardSkins = useMemo<CardSkin[]>(() => {
     if (slots === 0) return [];
-    const tierRank = (s: CatalogSkin) => (s.tierId ? (sp.tierById.get(s.tierId)?.rank ?? -1) : -1);
     const price = (s: CatalogSkin) => priceBySkin.get(s.uuid);
+    if (template === "collection") {
+      return paidSorted
+        .slice(pageIndex * slots, (pageIndex + 1) * slots)
+        .map((skin) => ({ skin, vp: price(skin) }));
+    }
     const byId = new Map(showable.map((s) => [s.uuid, s]));
     let list: CatalogSkin[];
     if (mode === "picked" && picked.length) {
@@ -236,7 +282,7 @@ function Share() {
       );
     }
     return list.slice(0, slots).map((skin) => ({ skin, vp: price(skin) }));
-  }, [slots, showable, mode, picked, priceBySkin, sp.tierById]);
+  }, [slots, template, paidSorted, pageIndex, showable, mode, picked, priceBySkin, tierRank]);
 
   const tierCounts = useMemo(() => {
     const counts = countBy(sp.owned ?? [], (o) => o.skin.tierId);
@@ -303,6 +349,13 @@ function Share() {
         g.skin!.tierId ? equipped.tierById.get(g.skin!.tierId)?.highlightColor : undefined,
       ),
     })),
+    accent: ACCENTS[accent].color,
+    headline: headline.trim() || null,
+    showPrices,
+    tilt,
+    showTierBar,
+    page: { index: pageIndex, total: pageCount },
+    paidCount: paidSorted.length,
   };
 
   const ready =
@@ -312,13 +365,43 @@ function Share() {
         ? Boolean(equipped.guns)
         : Boolean(sp.owned && sp.spending);
 
+  const fileName = (index = pageIndex) =>
+    template === "collection" && pageCount > 1
+      ? `valovertix-collection-${index + 1}-of-${pageCount}-${dims.w}x${dims.h}.png`
+      : `valovertix-${template}-${dims.w}x${dims.h}.png`;
+  const cardNode = () => cardRef.current?.querySelector<HTMLElement>("[data-share-card] > div");
+
+  /** Renders each card of the set in turn and saves it. */
+  async function onExportAll() {
+    setBusy(true);
+    const start = pageIndex;
+    try {
+      for (let i = 0; i < pageCount; i++) {
+        setBatch({ done: i, total: pageCount });
+        setPage(i);
+        // Two frames: React commits the new page, then the browser lays it out.
+        await new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
+        const node = cardNode();
+        if (!node) throw new Error("no card");
+        downloadBlob(await exportPng(node, dims.w, dims.h), fileName(i));
+      }
+      toast.success(`${pageCount} PNGs saved to your downloads.`);
+    } catch {
+      toast.error("Couldn't create every image. An artwork may have failed to load; try again.");
+    } finally {
+      setPage(start);
+      setBatch(null);
+      setBusy(false);
+    }
+  }
+
   async function onExport() {
-    const node = cardRef.current?.querySelector<HTMLElement>("[data-share-card] > div");
+    const node = cardNode();
     if (!node) return;
     setBusy(true);
     try {
       const blob = await exportPng(node, dims.w, dims.h);
-      downloadBlob(blob, `valovertix-${template}-${dims.w}x${dims.h}.png`);
+      downloadBlob(blob, fileName());
       toast.success("PNG saved to your downloads.");
     } catch {
       toast.error("Couldn't create the image. An artwork may have failed to load; try again.");
@@ -386,7 +469,39 @@ function Share() {
           ]}
         />
 
-        {slots > 0 && (
+        {template === "collection" && (
+          <div className="space-y-3">
+            <Dropdown<Order>
+              label="Order"
+              value={order}
+              onChange={(o) => {
+                setOrder(o);
+                setPage(0);
+              }}
+              options={[
+                { value: "value", label: "Most valuable first" },
+                { value: "tier", label: "Highest tier first" },
+                { value: "weapon", label: "By weapon" },
+                { value: "name", label: "Name, A to Z" },
+              ]}
+            />
+            <Dropdown<string>
+              label={`Card (${pageCount} for ${paidSorted.length} paid skins)`}
+              value={String(pageIndex)}
+              onChange={(v) => setPage(Number(v))}
+              options={Array.from({ length: pageCount }, (_, i) => ({
+                value: String(i),
+                label: `Card ${i + 1}`,
+                hint: `${i * slots + 1}–${Math.min(paidSorted.length, (i + 1) * slots)}`,
+              }))}
+            />
+            <p className="text-xs text-muted">
+              Battle pass, contract and free skins are left out. Story size fits 20 skins per card.
+            </p>
+          </div>
+        )}
+
+        {slots > 0 && template !== "collection" && (
           <div className="space-y-2">
             <Dropdown<SkinMode>
               label={`Skins on the card (${slots})`}
@@ -413,6 +528,43 @@ function Share() {
           </div>
         )}
 
+        <fieldset className="space-y-3 border-t border-line pt-4">
+          <legend className="sr-only">Style</legend>
+          <p className="font-display text-xs font-semibold uppercase tracking-[0.08em] text-muted">
+            Style
+          </p>
+          <Dropdown<AccentKey>
+            label="Accent color"
+            value={accent}
+            onChange={setAccent}
+            options={(Object.keys(ACCENTS) as AccentKey[]).map((k) => ({
+              value: k,
+              label: ACCENTS[k].label,
+            }))}
+          />
+          <div>
+            <label
+              htmlFor={headlineId}
+              className="mb-1 block font-display text-xs font-semibold uppercase tracking-[0.08em] text-muted"
+            >
+              Headline
+            </label>
+            <input
+              id={headlineId}
+              value={headline}
+              maxLength={28}
+              onChange={(e) => setHeadline(e.target.value)}
+              placeholder="e.g. Vandal main"
+              className="min-h-11 w-full border border-line-strong bg-bg/70 px-3 placeholder:text-faint"
+            />
+          </div>
+          <Switch checked={showPrices} onChange={setShowPrices} label="Show skin prices" />
+          <Switch checked={tilt} onChange={setTilt} label="Tilt the skin art" />
+          {(template === "locker" || template === "collection") && (
+            <Switch checked={showTierBar} onChange={setShowTierBar} label="Show the tier summary" />
+          )}
+        </fieldset>
+
         <Switch
           checked={showRiotId}
           onChange={(v) => setSettings({ showRiotIdOnShare: v })}
@@ -426,8 +578,15 @@ function Share() {
           disabled={busy || !ready}
           onClick={() => void onExport()}
         >
-          {busy ? "Creating PNG…" : !ready ? "Loading data…" : "Download PNG"}
+          {busy && !batch ? "Creating PNG…" : !ready ? "Loading data…" : "Download PNG"}
         </button>
+        {template === "collection" && pageCount > 1 && (
+          <Button className="w-full" disabled={busy || !ready} onClick={() => void onExportAll()}>
+            {batch
+              ? `Saving card ${batch.done + 1} of ${batch.total}…`
+              : `Download all ${pageCount} cards`}
+          </Button>
+        )}
       </Panel>
 
       <div ref={frameRef} className="min-w-0">
@@ -450,6 +609,11 @@ function Share() {
             <ShareCard template={template} size={size} data={data} />
           </div>
         </div>
+        <ShareLinkPanel
+          skins={showable}
+          allSkins={(sp.owned ?? []).map((o) => o.skin).filter((s) => !s.isDefault)}
+          totalVp={sp.spending?.totalVp ?? null}
+        />
       </div>
 
       <SkinPicker
@@ -468,7 +632,8 @@ export default function ShareRoute() {
   return (
     <RequireSession title="Share card">
       <PageHeader title="Share card">
-        Make a PNG of your locker, spending, profile or rank to post anywhere.
+        Make a PNG of your locker, collection, spending, profile, rank or loadout, or share a link
+        to your collection.
       </PageHeader>
       <Share />
     </RequireSession>

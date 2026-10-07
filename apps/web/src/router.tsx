@@ -52,6 +52,8 @@ const routeTree = rootRoute.addChildren([
   page("/spending", () => import("@/routes/spending")),
   page("/stats", () => import("@/routes/stats")),
   page("/share", () => import("@/routes/share")),
+  // A shared collection preview: the data is in the URL fragment, no sign-in needed.
+  page("/c", () => import("@/routes/shared")),
   page("/settings", () => import("@/routes/settings")),
   page("/guide", () => import("@/routes/guide")),
   page("/privacy", () => import("@/routes/privacy")),

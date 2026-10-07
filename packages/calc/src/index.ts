@@ -4,3 +4,4 @@ export * from "./collection";
 export * from "./spending";
 export * from "./stats";
 export * from "./match";
+export * from "./share-link";
