@@ -14,8 +14,9 @@ import { PageHeader, RequireSession } from "@/components/shared";
 import { toast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import { Dropdown } from "@/components/ui/dropdown";
-import { Dialog, Panel, Switch } from "@/components/ui/primitives";
+import { Dialog, Panel, Switch, Tabs } from "@/components/ui/primitives";
 import { useActiveSession } from "@/features/auth/session-store";
+import { useBundles } from "@/features/collection/bundles";
 import { useEquippedGuns, type EquippedGun } from "@/features/collection/loadout";
 import { useProfile } from "@/features/dashboard/profile";
 import { useMatchStats, useRanks, useSpending, useStatic, useStorefront } from "@/features/data";
@@ -36,6 +37,8 @@ import {
 import { downloadBlob, exportPng } from "@/features/share/export";
 import { cn } from "@/lib/cn";
 import { useRememberedTab } from "@/lib/use-remembered-tab";
+import { useMedia } from "@/lib/use-media";
+import { createPortal } from "react-dom";
 import { apiColor } from "@/lib/format";
 
 /** Which equipped skins make the loadout card when not all fit: the most-used guns first. */
@@ -194,6 +197,11 @@ function Share() {
   const [picking, setPicking] = useState(false);
   const [order, setOrder] = useState<Order>("value");
   const [page, setPage] = useState(0);
+  const compact = useMedia("(max-width: 1023px)");
+  const [shareMode, setShareMode] = useRememberedTab<ShareMode>("share-mode", "image", [
+    "image",
+    "link",
+  ]);
   const [accent, setAccent] = useState<AccentKey>("red");
   const [headline, setHeadline] = useState("");
   const [showPrices, setShowPrices] = useState(true);
@@ -222,12 +230,14 @@ function Share() {
   useLayoutEffect(() => {
     const el = frameRef.current;
     if (!el) return;
-    const update = () => setScale(Math.min(1, el.clientWidth / dims.w, 680 / dims.h));
+    // Fit the stage width (minus its padding) and keep tall cards to about 640px.
+    const update = () =>
+      setScale(Math.max(0.1, Math.min(1, (el.clientWidth - 48) / dims.w, 640 / dims.h)));
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [dims.w, dims.h]);
+  }, [dims.w, dims.h, shareMode]);
 
   const priceBySkin = useMemo(
     () => new Map(sp.spending?.priced.map((p) => [p.owned.skin.uuid, p.vp]) ?? []),
@@ -411,22 +421,83 @@ function Share() {
     }
   }
 
+  const allSkins = useMemo(
+    () => (sp.owned ?? []).map((o) => o.skin).filter((s) => !s.isDefault),
+    [sp.owned],
+  );
+  const bundleRows = useBundles().rows;
+  const counts = useMemo(
+    () => ({
+      totalSkins: allSkins.length,
+      bundles: (bundleRows ?? []).filter((r) => !r.free && r.ownedCount >= r.total).length,
+      battlePass: allSkins.filter((s) => s.isContractReward).length,
+    }),
+    [allSkins, bundleRows],
+  );
+
+  const downloadActions = (
+    <div className="flex flex-wrap gap-2">
+      {template === "collection" && pageCount > 1 && (
+        <Button size="sm" disabled={busy || !ready} onClick={() => void onExportAll()}>
+          {batch
+            ? `Saving card ${batch.done + 1} of ${batch.total}…`
+            : `Download all ${pageCount} cards`}
+        </Button>
+      )}
+      <button
+        type="button"
+        className="btn-valo btn-valo-primary"
+        disabled={busy || !ready}
+        onClick={() => void onExport()}
+      >
+        {busy && !batch ? "Creating PNG…" : !ready ? "Loading data…" : "Download PNG"}
+      </button>
+    </div>
+  );
+
+  const sizeLabel: Record<SizeKey, string> = {
+    square: "Square",
+    story: "Story",
+    wide: "Link preview",
+  };
+  const usesSkins = slots > 0;
+
+  if (shareMode === "link") {
+    return (
+      <>
+        <ModeSwitch mode={shareMode} setMode={setShareMode} />
+        <div role="tabpanel" id="panel-link" aria-labelledby="tab-link">
+          <ShareLinkPanel
+            skins={showable}
+            allSkins={allSkins}
+            totalVp={sp.spending?.totalVp ?? null}
+            counts={counts}
+          />
+        </div>
+      </>
+    );
+  }
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
-      <Panel aria-label="Card options" className="h-fit space-y-6 lg:sticky lg:top-20">
-        <fieldset>
-          <legend className="mb-2 font-display text-xs font-semibold uppercase tracking-[0.08em] text-muted">
-            Template
-          </legend>
-          <div className="grid grid-cols-2 gap-2">
+    <>
+      <ModeSwitch mode={shareMode} setMode={setShareMode} />
+      <div
+        role="tabpanel"
+        id="panel-image"
+        aria-labelledby="tab-image"
+        className={cn(compact && "pb-20")}
+      >
+        <fieldset className="mb-6">
+          <legend className={cn(SECTION, "mb-2")}>Template</legend>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
             {TEMPLATES.map((t) => (
               <label
                 key={t.id}
                 className={cn(
-                  "relative flex min-h-16 cursor-pointer flex-col justify-center border px-3 py-2 transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-text",
+                  "relative flex min-h-[4.5rem] cursor-pointer flex-col justify-center border px-3 py-2 transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-text",
                   template === t.id
                     ? "border-accent bg-accent/10"
-                    : "border-line-strong hover:border-muted",
+                    : "border-line-strong bg-surface/60 hover:border-muted",
                 )}
               >
                 <input
@@ -438,194 +509,340 @@ function Share() {
                   className="sr-only"
                 />
                 {template === t.id && (
-                  <span aria-hidden className="absolute inset-y-2 left-0 w-[3px] bg-accent" />
+                  <span aria-hidden className="absolute inset-x-3 top-0 h-[3px] bg-accent" />
                 )}
                 <span className="font-display text-lg font-bold uppercase leading-tight">
                   {t.label}
                 </span>
-                <span className="text-xs text-muted">{t.text}</span>
+                <span className="text-xs leading-snug text-muted">{t.text}</span>
               </label>
             ))}
           </div>
         </fieldset>
 
-        <Dropdown<SizeKey>
-          label="Size"
-          value={size}
-          onChange={setSize}
-          options={(Object.keys(SIZES) as SizeKey[]).map((k) => ({
-            value: k,
-            label: SIZES[k].label,
-          }))}
-        />
-
-        <Dropdown<Background>
-          label="Background"
-          value={background}
-          onChange={setBackground}
-          options={[
-            { value: "card", label: "My player card" },
-            ...(bundleArt ? [{ value: "bundle" as const, label: "Featured bundle art" }] : []),
-            { value: "none", label: "Grid only" },
-          ]}
-        />
-
-        {template === "collection" && (
-          <div className="space-y-3">
-            <Dropdown<Order>
-              label="Order"
-              value={order}
-              onChange={(o) => {
-                setOrder(o);
-                setPage(0);
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_21rem]">
+          {/* The stage: the card at preview scale, with its actions on top. */}
+          <section aria-label="Preview" className="panel min-w-0 p-0">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
+              <p className="text-sm text-muted">
+                <span className="font-semibold text-text">
+                  {dims.w} × {dims.h}
+                </span>{" "}
+                · preview at {Math.round(scale * 100)}%
+              </p>
+              {!compact && downloadActions}
+            </div>
+            <div
+              ref={frameRef}
+              className="flex min-w-0 justify-center bg-bg/60 p-4 sm:p-6"
+              style={{
+                backgroundImage:
+                  "linear-gradient(to right, rgba(236,232,225,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(236,232,225,0.04) 1px, transparent 1px)",
+                backgroundSize: "24px 24px",
               }}
-              options={[
-                { value: "value", label: "Most valuable first" },
-                { value: "tier", label: "Highest tier first" },
-                { value: "weapon", label: "By weapon" },
-                { value: "name", label: "Name, A to Z" },
-              ]}
-            />
-            <Dropdown<string>
-              label={`Card (${pageCount} for ${paidSorted.length} paid skins)`}
-              value={String(pageIndex)}
-              onChange={(v) => setPage(Number(v))}
-              options={Array.from({ length: pageCount }, (_, i) => ({
-                value: String(i),
-                label: `Card ${i + 1}`,
-                hint: `${i * slots + 1}–${Math.min(paidSorted.length, (i + 1) * slots)}`,
-              }))}
-            />
-            <p className="text-xs text-muted">
-              Battle pass, contract and free skins are left out. Story size fits 20 skins per card.
-            </p>
-          </div>
-        )}
-
-        {slots > 0 && template !== "collection" && (
-          <div className="space-y-2">
-            <Dropdown<SkinMode>
-              label={`Skins on the card (${slots})`}
-              value={mode}
-              onChange={(m) => {
-                setMode(m);
-                if (m === "picked" && picked.length === 0) setPicking(true);
-              }}
-              options={[
-                { value: "value", label: "Most valuable" },
-                { value: "tier", label: "Highest tier" },
-                {
-                  value: "picked",
-                  label: "Picked by me",
-                  ...(picked.length ? { hint: `${picked.length}` } : {}),
-                },
-              ]}
-            />
-            {mode === "picked" && (
-              <Button size="sm" onClick={() => setPicking(true)}>
-                {picked.length ? `Change picks (${picked.length})` : "Choose skins"}
-              </Button>
-            )}
-          </div>
-        )}
-
-        <fieldset className="space-y-3 border-t border-line pt-4">
-          <legend className="sr-only">Style</legend>
-          <p className="font-display text-xs font-semibold uppercase tracking-[0.08em] text-muted">
-            Style
-          </p>
-          <Dropdown<AccentKey>
-            label="Accent color"
-            value={accent}
-            onChange={setAccent}
-            options={(Object.keys(ACCENTS) as AccentKey[]).map((k) => ({
-              value: k,
-              label: ACCENTS[k].label,
-            }))}
-          />
-          <div>
-            <label
-              htmlFor={headlineId}
-              className="mb-1 block font-display text-xs font-semibold uppercase tracking-[0.08em] text-muted"
             >
-              Headline
-            </label>
-            <input
-              id={headlineId}
-              value={headline}
-              maxLength={28}
-              onChange={(e) => setHeadline(e.target.value)}
-              placeholder="e.g. Vandal main"
-              className="min-h-11 w-full border border-line-strong bg-bg/70 px-3 placeholder:text-faint"
-            />
-          </div>
-          <Switch checked={showPrices} onChange={setShowPrices} label="Show skin prices" />
-          <Switch checked={tilt} onChange={setTilt} label="Tilt the skin art" />
-          {(template === "locker" || template === "collection") && (
-            <Switch checked={showTierBar} onChange={setShowTierBar} label="Show the tier summary" />
-          )}
-        </fieldset>
+              <div
+                className="relative shrink-0 overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.5)]"
+                style={{ width: dims.w * scale, height: dims.h * scale }}
+              >
+                <div
+                  ref={cardRef}
+                  style={{
+                    transform: `scale(${scale})`,
+                    transformOrigin: "top left",
+                    width: dims.w,
+                    height: dims.h,
+                  }}
+                >
+                  <ShareCard template={template} size={size} data={data} />
+                </div>
+              </div>
+            </div>
+            {template === "collection" && pageCount > 1 && (
+              <div className="flex items-center justify-center gap-3 border-t border-line px-4 py-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={pageIndex === 0 || busy}
+                  onClick={() => setPage(pageIndex - 1)}
+                >
+                  Previous card
+                </Button>
+                <span className="text-sm tabular-nums" aria-live="polite">
+                  Card {pageIndex + 1} of {pageCount}
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={pageIndex === pageCount - 1 || busy}
+                  onClick={() => setPage(pageIndex + 1)}
+                >
+                  Next card
+                </Button>
+              </div>
+            )}
+          </section>
 
-        <Switch
-          checked={showRiotId}
-          onChange={(v) => setSettings({ showRiotIdOnShare: v })}
-          label="Show my Riot ID and title"
-          description="Off by default. Your account ID and token are never on the image."
-        />
+          <Panel aria-label="Card options" className="space-y-6">
+            <section aria-labelledby="opt-format" className="space-y-4">
+              <h2 id="opt-format" className={SECTION}>
+                Format
+              </h2>
+              <Segmented<SizeKey>
+                legend="Size"
+                value={size}
+                onChange={setSize}
+                options={(Object.keys(SIZES) as SizeKey[]).map((k) => ({
+                  value: k,
+                  label: sizeLabel[k],
+                  hint: `${SIZES[k].w}×${SIZES[k].h}`,
+                }))}
+              />
+              <Dropdown<Background>
+                label="Background"
+                value={background}
+                onChange={setBackground}
+                options={[
+                  { value: "card", label: "My player card" },
+                  ...(bundleArt
+                    ? [{ value: "bundle" as const, label: "Featured bundle art" }]
+                    : []),
+                  { value: "none", label: "Grid only" },
+                ]}
+              />
+            </section>
 
-        <button
-          type="button"
-          className="btn-valo btn-valo-primary w-full"
-          disabled={busy || !ready}
-          onClick={() => void onExport()}
-        >
-          {busy && !batch ? "Creating PNG…" : !ready ? "Loading data…" : "Download PNG"}
-        </button>
-        {template === "collection" && pageCount > 1 && (
-          <Button className="w-full" disabled={busy || !ready} onClick={() => void onExportAll()}>
-            {batch
-              ? `Saving card ${batch.done + 1} of ${batch.total}…`
-              : `Download all ${pageCount} cards`}
-          </Button>
-        )}
-      </Panel>
+            {template === "collection" && (
+              <section aria-labelledby="opt-skins" className="space-y-3 border-t border-line pt-5">
+                <h2 id="opt-skins" className={SECTION}>
+                  Skins
+                </h2>
+                <Dropdown<Order>
+                  label="Order"
+                  value={order}
+                  onChange={(o) => {
+                    setOrder(o);
+                    setPage(0);
+                  }}
+                  options={[
+                    { value: "value", label: "Most valuable first" },
+                    { value: "tier", label: "Highest tier first" },
+                    { value: "weapon", label: "By weapon" },
+                    { value: "name", label: "Name, A to Z" },
+                  ]}
+                />
+                <Dropdown<string>
+                  label={`Card (${pageCount} for ${paidSorted.length} paid skins)`}
+                  value={String(pageIndex)}
+                  onChange={(v) => setPage(Number(v))}
+                  options={Array.from({ length: pageCount }, (_, i) => ({
+                    value: String(i),
+                    label: `Card ${i + 1}`,
+                    hint: `${i * slots + 1}–${Math.min(paidSorted.length, (i + 1) * slots)}`,
+                  }))}
+                />
+                <p className="text-xs text-muted">
+                  Battle pass, contract and free skins are left out. Story size fits 20 per card.
+                </p>
+              </section>
+            )}
 
-      <div ref={frameRef} className="min-w-0">
-        <p className="mb-2 text-sm text-muted">
-          Preview at {Math.round(scale * 100)}%. The download is {dims.w} × {dims.h} pixels.
-        </p>
-        <div
-          className="relative overflow-hidden border border-line"
-          style={{ width: dims.w * scale, height: dims.h * scale }}
-        >
-          <div
-            ref={cardRef}
-            style={{
-              transform: `scale(${scale})`,
-              transformOrigin: "top left",
-              width: dims.w,
-              height: dims.h,
-            }}
-          >
-            <ShareCard template={template} size={size} data={data} />
-          </div>
+            {usesSkins && template !== "collection" && (
+              <section aria-labelledby="opt-skins" className="space-y-3 border-t border-line pt-5">
+                <h2 id="opt-skins" className={SECTION}>
+                  Skins
+                </h2>
+                <Dropdown<SkinMode>
+                  label={`Skins on the card (${slots})`}
+                  value={mode}
+                  onChange={(m) => {
+                    setMode(m);
+                    if (m === "picked" && picked.length === 0) setPicking(true);
+                  }}
+                  options={[
+                    { value: "value", label: "Most valuable" },
+                    { value: "tier", label: "Highest tier" },
+                    {
+                      value: "picked",
+                      label: "Picked by me",
+                      ...(picked.length ? { hint: `${picked.length}` } : {}),
+                    },
+                  ]}
+                />
+                {mode === "picked" && (
+                  <Button size="sm" onClick={() => setPicking(true)}>
+                    {picked.length ? `Change picks (${picked.length})` : "Choose skins"}
+                  </Button>
+                )}
+              </section>
+            )}
+
+            <section aria-labelledby="opt-style" className="space-y-4 border-t border-line pt-5">
+              <h2 id="opt-style" className={SECTION}>
+                Style
+              </h2>
+              <fieldset>
+                <legend className={cn(SECTION, "mb-2 text-[0.7rem]")}>Accent color</legend>
+                <div className="flex flex-wrap gap-2">
+                  {(Object.keys(ACCENTS) as AccentKey[]).map((k) => (
+                    <label
+                      key={k}
+                      title={ACCENTS[k].label}
+                      className={cn(
+                        "grid size-11 cursor-pointer place-items-center border-2 transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-text",
+                        accent === k
+                          ? "border-text"
+                          : "border-transparent hover:border-line-strong",
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="accent"
+                        value={k}
+                        checked={accent === k}
+                        onChange={() => setAccent(k)}
+                        className="sr-only"
+                        aria-label={ACCENTS[k].label}
+                      />
+                      <span
+                        aria-hidden
+                        className="size-7"
+                        style={{ backgroundColor: ACCENTS[k].color }}
+                      />
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <div>
+                <label htmlFor={headlineId} className={cn(SECTION, "mb-1 block text-[0.7rem]")}>
+                  Headline
+                </label>
+                <input
+                  id={headlineId}
+                  value={headline}
+                  maxLength={28}
+                  onChange={(e) => setHeadline(e.target.value)}
+                  placeholder="e.g. Vandal main"
+                  className="min-h-11 w-full border border-line-strong bg-bg/70 px-3 placeholder:text-faint"
+                />
+              </div>
+              <div className="space-y-1">
+                <Switch checked={showPrices} onChange={setShowPrices} label="Show skin prices" />
+                <Switch checked={tilt} onChange={setTilt} label="Tilt the skin art" />
+                {(template === "locker" || template === "collection") && (
+                  <Switch
+                    checked={showTierBar}
+                    onChange={setShowTierBar}
+                    label="Show the tier summary"
+                  />
+                )}
+              </div>
+            </section>
+
+            <section aria-labelledby="opt-privacy" className="space-y-3 border-t border-line pt-5">
+              <h2 id="opt-privacy" className={SECTION}>
+                Privacy
+              </h2>
+              <Switch
+                checked={showRiotId}
+                onChange={(v) => setSettings({ showRiotIdOnShare: v })}
+                label="Show my Riot ID and title"
+                description="Off by default. Your account ID and token are never on the image."
+              />
+            </section>
+          </Panel>
         </div>
-        <ShareLinkPanel
-          skins={showable}
-          allSkins={(sp.owned ?? []).map((o) => o.skin).filter((s) => !s.isDefault)}
-          totalVp={sp.spending?.totalVp ?? null}
-        />
-      </div>
 
-      <SkinPicker
-        open={picking}
-        onClose={() => setPicking(false)}
-        skins={showable}
-        picked={picked}
-        setPicked={setPicked}
-        limit={slots || 15}
+        <SkinPicker
+          open={picking}
+          onClose={() => setPicking(false)}
+          skins={showable}
+          picked={picked}
+          setPicked={setPicked}
+          limit={slots || 15}
+        />
+        {compact &&
+          // Rendered on <body>: the page transition wrapper would break position: fixed.
+          createPortal(
+            // Phones and tablets: downloads stay one tap away, just above the tab bar.
+            <div className="fixed inset-x-0 bottom-[var(--tabbar)] z-30 border-t border-line bg-bg/95 px-4 py-3 [&>div]:flex-nowrap [&_button]:flex-1">
+              {downloadActions}
+            </div>,
+            document.body,
+          )}
+      </div>
+    </>
+  );
+}
+
+const SECTION = "font-display text-xs font-semibold uppercase tracking-[0.12em] text-muted";
+
+type ShareMode = "image" | "link";
+
+/** Image card or link: two different jobs, so two layouts. */
+function ModeSwitch({ mode, setMode }: { mode: ShareMode; setMode: (m: ShareMode) => void }) {
+  return (
+    <div className="mb-6">
+      <Tabs<ShareMode>
+        label="Share as"
+        value={mode}
+        onChange={setMode}
+        tabs={[
+          { id: "image", label: "Image card" },
+          { id: "link", label: "Share link" },
+        ]}
       />
     </div>
+  );
+}
+
+/** A row of mutually exclusive buttons (native radios underneath). */
+function Segmented<T extends string>({
+  legend,
+  value,
+  onChange,
+  options,
+}: {
+  legend: string;
+  value: T;
+  onChange: (v: T) => void;
+  options: { value: T; label: string; hint?: string }[];
+}) {
+  return (
+    <fieldset>
+      <legend className={cn(SECTION, "mb-2 text-[0.7rem]")}>{legend}</legend>
+      <div className="grid grid-flow-col gap-px border border-line-strong bg-line-strong">
+        {options.map((o) => (
+          <label
+            key={o.value}
+            className={cn(
+              "flex min-h-11 cursor-pointer flex-col items-center justify-center px-2 py-1.5 text-center transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:-outline-offset-2 has-[:focus-visible]:outline-text",
+              value === o.value ? "bg-accent text-accent-ink" : "bg-surface hover:bg-raised",
+            )}
+          >
+            <input
+              type="radio"
+              name={legend}
+              value={o.value}
+              checked={value === o.value}
+              onChange={() => onChange(o.value)}
+              className="sr-only"
+            />
+            <span className="font-display text-sm font-bold uppercase">{o.label}</span>
+            {o.hint && (
+              <span
+                className={cn(
+                  "text-[0.65rem] tabular-nums",
+                  value === o.value ? "text-accent-ink/80" : "text-muted",
+                )}
+              >
+                {o.hint}
+              </span>
+            )}
+          </label>
+        ))}
+      </div>
+    </fieldset>
   );
 }
 
@@ -633,8 +850,7 @@ export default function ShareRoute() {
   return (
     <RequireSession title="Share card">
       <PageHeader title="Share card">
-        Make a PNG of your locker, collection, spending, profile, rank or loadout, or share a link
-        to your collection.
+        Turn your collection into an image card to post, or a link anyone can open.
       </PageHeader>
       <Share />
     </RequireSession>

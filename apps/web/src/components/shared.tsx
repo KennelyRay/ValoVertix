@@ -21,10 +21,12 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <div className="mb-5 flex flex-wrap items-end justify-between gap-x-4 gap-y-2 sm:mb-6">
       <div className="min-w-0">
         <h1 className="text-4xl sm:text-5xl">{title}</h1>
-        {children && <div className="mt-1 max-w-2xl text-muted">{children}</div>}
+        {children && (
+          <div className="mt-1 max-w-2xl text-sm text-muted sm:text-base">{children}</div>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-3">
         {actions}

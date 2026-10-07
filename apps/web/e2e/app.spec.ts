@@ -44,6 +44,39 @@ test("demo flow works on every page @mobile", async ({ page }) => {
   expect(problems).toEqual([]);
 });
 
+test("phones get a tab bar and sheets that fit the screen @mobile", async ({ page }, info) => {
+  test.skip(info.project.name !== "mobile", "phone layout only");
+  const problems = watchConsole(page);
+  await page.goto("/?demo=1");
+  const bar = page.getByRole("navigation", { name: "Tab bar" });
+  await expect(bar).toBeVisible({ timeout: 20_000 });
+
+  await bar.getByRole("link", { name: "Stats" }).tap();
+  await expect(page).toHaveURL(/\/stats$/);
+  await page.locator('[aria-label="Recent matches"] button').first().tap({ timeout: 20_000 });
+  const dialog = page.getByRole("dialog", { name: "Match details" });
+  await expect(dialog).toBeVisible();
+  // Measure once the slide-up has finished.
+  await dialog.evaluate((d) => Promise.all(d.getAnimations().map((a) => a.finished)));
+  // The sheet sits inside the viewport: nothing cut off at the top or bottom.
+  const box = (await dialog.boundingBox())!;
+  const viewport = page.viewportSize()!;
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 1);
+  expect(box.width).toBeLessThanOrEqual(viewport.width);
+  await dialog.getByRole("button", { name: "Close" }).tap();
+  await expect(dialog).toBeHidden();
+
+  await bar.getByRole("button", { name: "More" }).tap();
+  await page
+    .getByRole("dialog", { name: "More" })
+    .getByRole("link", { name: /Share card/ })
+    .tap();
+  await expect(page).toHaveURL(/\/share$/);
+  await expect(page.getByRole("button", { name: "Download PNG" })).toBeInViewport();
+  expect(problems).toEqual([]);
+});
+
 test("paste-URL flow sends tokens only to Riot", async ({ page }) => {
   const problems = watchConsole(page);
   const offenders: string[] = [];
@@ -75,8 +108,7 @@ test("exports a PNG at the chosen size", async ({ page }) => {
   await expect(page.getByText("Estimated collection value")).toBeVisible({ timeout: 20_000 });
   await page.getByRole("link", { name: "Share card" }).first().click();
   await page.getByText("Estimated value and top skins").click();
-  await page.getByRole("combobox", { name: "Size" }).click();
-  await page.getByRole("option", { name: "Link preview 1200 × 630" }).click();
+  await page.getByRole("radio", { name: /Link preview/ }).check({ force: true });
   const button = page.getByRole("button", { name: "Download PNG" });
   await expect(button).toBeEnabled({ timeout: 20_000 });
   const [download] = await Promise.all([page.waitForEvent("download"), button.click()]);

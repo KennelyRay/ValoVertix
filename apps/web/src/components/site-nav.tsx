@@ -208,11 +208,21 @@ export function SiteNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  // Phones: the header slides away while scrolling down and back on the way up.
+  const [tucked, setTucked] = useState(false);
   const close = useCallback(() => setOpen(false), []);
 
   useEffect(() => setOpen(false), [pathname]);
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
+    let last = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      setScrolled(y > 8);
+      if (Math.abs(y - last) > 6) {
+        setTucked(y > last && y > 120);
+        last = y;
+      }
+    };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -221,8 +231,9 @@ export function SiteNav() {
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 border-b transition-colors duration-300",
+        "sticky top-0 z-50 border-b pt-[env(safe-area-inset-top)] transition-[background-color,border-color,transform] duration-300",
         scrolled || open ? "border-line bg-bg/95" : "border-transparent bg-bg/40",
+        tucked && !open && "max-lg:-translate-y-full",
       )}
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4">
@@ -261,7 +272,11 @@ export function SiteNav() {
           )}
           <button
             type="button"
-            className="relative inline-flex min-h-11 min-w-11 items-center justify-center text-text lg:hidden"
+            // Signed in, phones use the bottom tab bar instead.
+            className={cn(
+              "relative inline-flex min-h-11 min-w-11 items-center justify-center text-text lg:hidden",
+              session && "hidden",
+            )}
             aria-expanded={open}
             aria-controls="mobile-nav"
             onClick={() => setOpen((o) => !o)}

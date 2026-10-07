@@ -10,6 +10,8 @@ import {
 import { AnimatePresence, m } from "framer-motion";
 import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useIsPhone } from "@/lib/use-media";
+import { Sheet } from "./sheet";
 
 export interface DropdownOption<T extends string> {
   value: T;
@@ -46,6 +48,8 @@ export function Dropdown<T extends string>({
   const listId = `${id}-list`;
   const trigger = useRef<HTMLButtonElement>(null);
   const root = useRef<HTMLDivElement>(null);
+  const list = useRef<HTMLUListElement>(null);
+  const phone = useIsPhone();
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [upward, setUpward] = useState(false);
@@ -79,11 +83,14 @@ export function Dropdown<T extends string>({
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => {
-      if (!root.current?.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      // The phone sheet renders elsewhere in the DOM and handles its own closing.
+      if (phone || root.current?.contains(target) || list.current?.contains(target)) return;
+      setOpen(false);
     };
     document.addEventListener("pointerdown", onDown);
     return () => document.removeEventListener("pointerdown", onDown);
-  }, [open]);
+  }, [open, phone]);
 
   // Keep the active option in view while moving with the keyboard.
   useEffect(() => {
@@ -188,22 +195,15 @@ export function Dropdown<T extends string>({
         />
       </button>
 
-      <AnimatePresence>
-        {open && (
-          <m.ul
-            id={listId}
-            role="listbox"
-            aria-labelledby={labelId}
-            initial={{ opacity: 0, y: upward ? 6 : -6, scaleY: 0.96 }}
-            animate={{ opacity: 1, y: 0, scaleY: 1 }}
-            exit={{ opacity: 0, y: upward ? 4 : -4, transition: { duration: 0.1 } }}
-            transition={{ duration: 0.16, ease: [0.2, 0.8, 0.2, 1] }}
-            style={{ transformOrigin: upward ? "bottom" : "top" }}
-            className={cn(
-              "absolute left-0 right-0 z-40 max-h-72 overflow-y-auto border border-line-strong bg-raised py-1 shadow-2xl shadow-black/60",
-              upward ? "bottom-full mb-1" : "top-full mt-1",
-            )}
-          >
+      {phone ? (
+        <Sheet
+          open={open}
+          onClose={() => setOpen(false)}
+          anchor={root.current}
+          title={label}
+          role="presentation"
+        >
+          <ul ref={list} id={listId} role="listbox" aria-labelledby={labelId} className="pb-2">
             {options.map((o, i) => {
               const isSelected = o.value === value;
               return (
@@ -212,14 +212,14 @@ export function Dropdown<T extends string>({
                   id={`${id}-opt-${i}`}
                   role="option"
                   aria-selected={isSelected}
-                  onPointerEnter={() => setActive(i)}
-                  // Pointer down (not click) so the trigger keeps focus.
-                  onPointerDown={(e) => {
-                    e.preventDefault();
-                    choose(i);
-                  }}
+                  onPointerEnter={(e) => e.pointerType === "mouse" && setActive(i)}
+                  // Mouse: keep focus on the trigger. Touch: wait for the tap,
+                  // so scrolling the list never picks an option by accident.
+                  onPointerDown={(e) => e.pointerType === "mouse" && e.preventDefault()}
+                  onClick={() => choose(i)}
                   className={cn(
-                    "relative flex min-h-11 cursor-pointer items-center gap-2 px-3 text-sm",
+                    "relative flex cursor-pointer items-center gap-2 px-3",
+                    phone ? "min-h-12 text-base" : "min-h-11 text-sm",
                     i === active ? "bg-line text-text" : "text-muted",
                     isSelected && "font-semibold text-text",
                   )}
@@ -235,9 +235,61 @@ export function Dropdown<T extends string>({
                 </li>
               );
             })}
-          </m.ul>
-        )}
-      </AnimatePresence>
+          </ul>
+        </Sheet>
+      ) : (
+        <AnimatePresence>
+          {open && (
+            <m.ul
+              ref={list}
+              id={listId}
+              role="listbox"
+              aria-labelledby={labelId}
+              initial={{ opacity: 0, y: upward ? 6 : -6, scaleY: 0.96 }}
+              animate={{ opacity: 1, y: 0, scaleY: 1 }}
+              exit={{ opacity: 0, y: upward ? 4 : -4, transition: { duration: 0.1 } }}
+              transition={{ duration: 0.16, ease: [0.2, 0.8, 0.2, 1] }}
+              style={{ transformOrigin: upward ? "bottom" : "top" }}
+              className={cn(
+                "absolute left-0 right-0 z-40 max-h-72 overflow-y-auto overscroll-contain border border-line-strong bg-raised py-1 shadow-2xl shadow-black/60",
+                upward ? "bottom-full mb-1" : "top-full mt-1",
+              )}
+            >
+              {options.map((o, i) => {
+                const isSelected = o.value === value;
+                return (
+                  <li
+                    key={o.value}
+                    id={`${id}-opt-${i}`}
+                    role="option"
+                    aria-selected={isSelected}
+                    onPointerEnter={(e) => e.pointerType === "mouse" && setActive(i)}
+                    // Mouse: keep focus on the trigger. Touch: wait for the tap,
+                    // so scrolling the list never picks an option by accident.
+                    onPointerDown={(e) => e.pointerType === "mouse" && e.preventDefault()}
+                    onClick={() => choose(i)}
+                    className={cn(
+                      "relative flex cursor-pointer items-center gap-2 px-3",
+                      phone ? "min-h-12 text-base" : "min-h-11 text-sm",
+                      i === active ? "bg-line text-text" : "text-muted",
+                      isSelected && "font-semibold text-text",
+                    )}
+                  >
+                    {isSelected && (
+                      <span aria-hidden className="absolute inset-y-1.5 left-0 w-[3px] bg-accent" />
+                    )}
+                    <span className="min-w-0 flex-1 truncate">{o.label}</span>
+                    {o.hint !== undefined && (
+                      <span className="shrink-0 text-xs text-muted">{o.hint}</span>
+                    )}
+                    {isSelected && <Check aria-hidden className="size-4 shrink-0 text-accent" />}
+                  </li>
+                );
+              })}
+            </m.ul>
+          )}
+        </AnimatePresence>
+      )}
     </div>
   );
 }

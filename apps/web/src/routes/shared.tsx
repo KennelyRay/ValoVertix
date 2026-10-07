@@ -11,6 +11,14 @@ import { apiColor, fmtDate, fmtInt, fmtVp } from "@/lib/format";
 
 const EYEBROW = "text-xs font-semibold uppercase tracking-[0.2em] text-muted";
 type Sort = "tier" | "weapon" | "name";
+/** One row on wider screens for up to six stats. */
+const STAT_COLS: Record<number, string> = {
+  2: "sm:grid-cols-2",
+  3: "sm:grid-cols-3",
+  4: "sm:grid-cols-4",
+  5: "sm:grid-cols-5",
+  6: "sm:grid-cols-3 lg:grid-cols-6",
+};
 /** Skins rendered at a time; big collections load more on request. */
 const PAGE = 40;
 
@@ -127,6 +135,24 @@ function Shared() {
     .map((t) => ({ t, n: resolved.skins.filter((s) => s.tierId === t.uuid.toLowerCase()).length }))
     .filter((x) => x.n > 0);
   const total = tierCounts.reduce((s, x) => s + x.n, 0) || 1;
+  // Totals travel in the link; older links only have the skin list.
+  const c = shared.counts;
+  const stats: { label: string; value: string; estimate?: boolean; small?: boolean }[] = [
+    ...(c ? [{ label: "Total skins", value: fmtInt(c.totalSkins) }] : []),
+    { label: shared.paidOnly ? "Paid skins" : "Skins", value: fmtInt(resolved.skins.length) },
+    ...(c
+      ? [
+          { label: "Complete bundles", value: fmtInt(c.bundles) },
+          { label: "Battle pass skins", value: fmtInt(c.battlePass) },
+        ]
+      : []),
+    ...(shared.vp !== null ? [{ label: "Value", value: fmtVp(shared.vp), estimate: true }] : []),
+    {
+      label: "Top tier",
+      value: tierCounts[0] ? `${tierCounts[0].n} ${tierLabel(tierCounts[0].t)}` : "None",
+      small: true,
+    },
+  ];
   const highlights = [...resolved.skins].sort((a, b) => rank(b) - rank(a)).slice(0, 3);
   const weapons = [
     ...new Map(resolved.skins.map((s) => [s.weaponId, s.weaponName])).entries(),
@@ -149,32 +175,27 @@ function Shared() {
 
         <dl
           className={cn(
-            "mt-6 grid max-w-3xl grid-cols-2 gap-px border border-line bg-line",
-            shared.vp !== null && "sm:grid-cols-3",
+            // Odd counts: the last cell spans the row on phones, so no empty cell shows.
+            "mt-6 grid max-w-5xl grid-cols-2 gap-px border border-line bg-line [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1",
+            STAT_COLS[stats.length] ?? "sm:grid-cols-3",
           )}
         >
-          <div className="bg-surface p-4">
-            <dt className={EYEBROW}>{shared.paidOnly ? "Paid skins" : "Skins"}</dt>
-            <dd className="mt-1 font-display text-4xl font-bold tabular-nums">
-              {fmtInt(resolved.skins.length)}
-            </dd>
-          </div>
-          {shared.vp !== null && (
-            <div className="bg-surface p-4">
+          {stats.map((c) => (
+            <div key={c.label} className="bg-surface p-4">
               <dt className={cn(EYEBROW, "flex items-center gap-2")}>
-                Value <EstimateTag />
+                {c.label}
+                {c.estimate && <EstimateTag />}
               </dt>
-              <dd className="mt-1 font-display text-4xl font-bold tabular-nums">
-                {fmtVp(shared.vp)}
+              <dd
+                className={cn(
+                  "mt-1 font-display font-bold tabular-nums",
+                  c.small ? "text-2xl uppercase" : "text-4xl",
+                )}
+              >
+                {c.value}
               </dd>
             </div>
-          )}
-          <div className="bg-surface p-4">
-            <dt className={EYEBROW}>Top tier</dt>
-            <dd className="mt-1 font-display text-2xl font-bold uppercase">
-              {tierCounts[0] ? `${tierCounts[0].n} ${tierLabel(tierCounts[0].t)}` : "None"}
-            </dd>
-          </div>
+          ))}
         </dl>
 
         {tierCounts.length > 0 && (
@@ -273,7 +294,7 @@ function Shared() {
           aria-label="Skins"
         >
           {visible.slice(0, limit).map((s) => (
-            <li key={s.uuid} className="flex">
+            <li key={s.uuid} className="cv-auto flex">
               <SkinCard skin={s} tier={s.tierId ? tierById.get(s.tierId) : undefined} />
             </li>
           ))}

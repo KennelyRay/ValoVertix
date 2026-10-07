@@ -15,6 +15,9 @@ import { useCollectibles, useSpending } from "@/features/data";
 import { useSettings } from "@/features/settings-store";
 import { fmtInt } from "@/lib/format";
 import { useRememberedTab } from "@/lib/use-remembered-tab";
+import { cn } from "@/lib/cn";
+import { useIsPhone } from "@/lib/use-media";
+import { Sheet } from "@/components/ui/sheet";
 
 type Tab =
   | "skins"
@@ -46,6 +49,8 @@ function Skins() {
   const [upgrades, setUpgrades] = useState<UpgradeFilter>("any");
   const [price, setPrice] = useState<PriceFilter>("any");
   const [open, setOpen] = useState<OwnedSkin<CatalogSkin> | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const phone = useIsPhone();
   const q = useDeferredValue(query.trim().toLowerCase());
   const searchId = useId();
 
@@ -117,87 +122,215 @@ function Skins() {
     ? owned.filter((o) => o.skin.isContractReward || o.skin.tierId === null).length
     : 0;
 
+  const activeFilters = [
+    tier !== "all",
+    theme !== "all",
+    upgrades !== "any",
+    price !== "any",
+  ].filter(Boolean).length;
+  const weaponsOwned = catalog.weapons.filter((w) => owned.some((o) => o.skin.weaponId === w.uuid));
+
   return (
     <div>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <div className="col-span-2 lg:col-span-5">
-          <label
-            htmlFor={searchId}
-            className="mb-1 block font-display text-xs font-semibold uppercase tracking-[0.08em] text-muted"
+      {phone ? (
+        // Phones: search, a swipeable row of weapons, and the rest in a Filters sheet.
+        <div className="space-y-3">
+          <div>
+            <label
+              htmlFor={searchId}
+              className="mb-1 block font-display text-xs font-semibold uppercase tracking-[0.08em] text-muted"
+            >
+              Search by name
+            </label>
+            <input
+              id={searchId}
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Skin name, e.g. Reaver"
+              className="min-h-11 w-full border border-line-strong bg-bg/70 px-3 placeholder:text-faint"
+            />
+          </div>
+          <div
+            role="radiogroup"
+            aria-label="Weapon"
+            className="-mx-4 flex snap-x scroll-px-4 gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1 [scrollbar-width:none]"
           >
-            Search by name
-          </label>
-          <input
-            id={searchId}
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Skin name, e.g. Reaver"
-            className="min-h-11 w-full border border-line-strong bg-bg/70 px-3 placeholder:text-faint"
+            {[{ uuid: "all", name: "All" }, ...weaponsOwned].map((w) => (
+              <button
+                key={w.uuid}
+                type="button"
+                role="radio"
+                aria-checked={weapon === w.uuid}
+                onClick={() => setWeapon(w.uuid)}
+                className={cn(
+                  "tap min-h-10 shrink-0 snap-start border px-3 font-display text-sm font-semibold uppercase tracking-wide transition-colors",
+                  weapon === w.uuid
+                    ? "border-accent bg-accent text-accent-ink"
+                    : "border-line-strong bg-surface text-muted",
+                )}
+              >
+                {w.name}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Button className="flex-1" onClick={() => setFiltersOpen(true)}>
+              Filters{activeFilters ? ` (${activeFilters})` : ""}
+            </Button>
+            {(activeFilters > 0 || weapon !== "all" || query) && (
+              <Button variant="ghost" onClick={reset}>
+                Clear
+              </Button>
+            )}
+          </div>
+          <Sheet open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filters">
+            <div className="space-y-4 px-4 pb-4">
+              <Dropdown
+                label="Tier"
+                value={tier}
+                onChange={setTier}
+                options={[
+                  { value: "all", label: "All tiers" },
+                  ...[...tiers]
+                    .sort((a, b) => a.rank - b.rank)
+                    .map((t) => ({
+                      value: t.uuid.toLowerCase(),
+                      label: t.displayName.replace(/ Edition$/, ""),
+                    })),
+                ]}
+              />
+              <Dropdown
+                label="Collection"
+                value={theme}
+                onChange={setTheme}
+                options={[
+                  { value: "all", label: "All collections" },
+                  ...ownedThemes.map((t) => ({
+                    value: t.uuid.toLowerCase(),
+                    label: t.displayName,
+                  })),
+                ]}
+              />
+              <Dropdown<UpgradeFilter>
+                label="Upgrades"
+                value={upgrades}
+                onChange={setUpgrades}
+                options={[
+                  { value: "any", label: "Any" },
+                  { value: "some", label: "Has owned upgrades" },
+                  { value: "none", label: "Base only" },
+                ]}
+              />
+              <Dropdown<PriceFilter>
+                label="Price"
+                value={price}
+                onChange={setPrice}
+                options={[
+                  { value: "any", label: "Any price" },
+                  { value: "lt1000", label: "Under 1,000 VP" },
+                  { value: "1000to1999", label: "1,000 to 1,999 VP" },
+                  { value: "gte2000", label: "2,000 VP and up" },
+                  { value: "unpriced", label: "No store price" },
+                ]}
+              />
+              <Switch
+                checked={hideFree}
+                onChange={(v) => setSettings({ hideFreeSkins: v })}
+                label="Hide free skins"
+                description="Battle pass, contract and other no-tier rewards"
+              />
+              <button
+                type="button"
+                className="btn-valo btn-valo-primary w-full"
+                onClick={() => setFiltersOpen(false)}
+              >
+                Show {fmtInt(filtered.length)} skins
+              </button>
+            </div>
+          </Sheet>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          <div className="col-span-2 lg:col-span-5">
+            <label
+              htmlFor={searchId}
+              className="mb-1 block font-display text-xs font-semibold uppercase tracking-[0.08em] text-muted"
+            >
+              Search by name
+            </label>
+            <input
+              id={searchId}
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Skin name, e.g. Reaver"
+              className="min-h-11 w-full border border-line-strong bg-bg/70 px-3 placeholder:text-faint"
+            />
+          </div>
+          <Dropdown
+            label="Weapon"
+            value={weapon}
+            onChange={setWeapon}
+            options={[
+              { value: "all", label: "All weapons" },
+              ...catalog.weapons.map((w) => ({ value: w.uuid, label: w.name })),
+            ]}
+          />
+          <Dropdown
+            label="Tier"
+            value={tier}
+            onChange={setTier}
+            options={[
+              { value: "all", label: "All tiers" },
+              ...[...tiers]
+                .sort((a, b) => a.rank - b.rank)
+                .map((t) => ({
+                  value: t.uuid.toLowerCase(),
+                  label: t.displayName.replace(/ Edition$/, ""),
+                })),
+            ]}
+          />
+          <Dropdown
+            label="Collection"
+            value={theme}
+            onChange={setTheme}
+            options={[
+              { value: "all", label: "All collections" },
+              ...ownedThemes.map((t) => ({ value: t.uuid.toLowerCase(), label: t.displayName })),
+            ]}
+          />
+          <Dropdown<UpgradeFilter>
+            label="Upgrades"
+            value={upgrades}
+            onChange={setUpgrades}
+            options={[
+              { value: "any", label: "Any" },
+              { value: "some", label: "Has owned upgrades" },
+              { value: "none", label: "Base only" },
+            ]}
+          />
+          <Dropdown<PriceFilter>
+            label="Price"
+            value={price}
+            onChange={setPrice}
+            options={[
+              { value: "any", label: "Any price" },
+              { value: "lt1000", label: "Under 1,000 VP" },
+              { value: "1000to1999", label: "1,000 to 1,999 VP" },
+              { value: "gte2000", label: "2,000 VP and up" },
+              { value: "unpriced", label: "No store price" },
+            ]}
           />
         </div>
-        <Dropdown
-          label="Weapon"
-          value={weapon}
-          onChange={setWeapon}
-          options={[
-            { value: "all", label: "All weapons" },
-            ...catalog.weapons.map((w) => ({ value: w.uuid, label: w.name })),
-          ]}
-        />
-        <Dropdown
-          label="Tier"
-          value={tier}
-          onChange={setTier}
-          options={[
-            { value: "all", label: "All tiers" },
-            ...[...tiers]
-              .sort((a, b) => a.rank - b.rank)
-              .map((t) => ({
-                value: t.uuid.toLowerCase(),
-                label: t.displayName.replace(/ Edition$/, ""),
-              })),
-          ]}
-        />
-        <Dropdown
-          label="Collection"
-          value={theme}
-          onChange={setTheme}
-          options={[
-            { value: "all", label: "All collections" },
-            ...ownedThemes.map((t) => ({ value: t.uuid.toLowerCase(), label: t.displayName })),
-          ]}
-        />
-        <Dropdown<UpgradeFilter>
-          label="Upgrades"
-          value={upgrades}
-          onChange={setUpgrades}
-          options={[
-            { value: "any", label: "Any" },
-            { value: "some", label: "Has owned upgrades" },
-            { value: "none", label: "Base only" },
-          ]}
-        />
-        <Dropdown<PriceFilter>
-          label="Price"
-          value={price}
-          onChange={setPrice}
-          options={[
-            { value: "any", label: "Any price" },
-            { value: "lt1000", label: "Under 1,000 VP" },
-            { value: "1000to1999", label: "1,000 to 1,999 VP" },
-            { value: "gte2000", label: "2,000 VP and up" },
-            { value: "unpriced", label: "No store price" },
-          ]}
-        />
-      </div>
+      )}
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-x-6 border-b border-line pb-3">
         <p className="text-sm text-muted" aria-live="polite">
           Showing {fmtInt(filtered.length)} of {fmtInt(owned.length)} skins
           {hiddenFree > 0 && `, ${hiddenFree} free skins hidden`}
         </p>
-        <div className="w-full sm:w-auto">
+        <div className="hidden w-full sm:block sm:w-auto">
           <Switch
             checked={hideFree}
             onChange={(v) => setSettings({ hideFreeSkins: v })}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import { useIsFetching, useQueryClient, type Query } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import { useActiveSession } from "@/features/auth/session-store";
@@ -16,22 +16,23 @@ export function useDataFreshness() {
   const session = useActiveSession();
   const id = session?.id;
   const fetching = useIsFetching({ predicate: isLive(id) }) > 0;
-  const [oldest, setOldest] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!id) return;
-    const cache = client.getQueryCache();
-    const update = () => {
+  const cache = client.getQueryCache();
+  // An external store read: the cache can change while other components render,
+  // which useSyncExternalStore handles (a plain subscription + setState would not).
+  const subscribe = useCallback((onChange: () => void) => cache.subscribe(onChange), [cache]);
+  const oldest = useSyncExternalStore(
+    subscribe,
+    () => {
+      if (!id) return null;
       // The oldest data on screen is what "updated" honestly means.
       const times = cache
         .findAll({ predicate: isLive(id) })
         .filter((q) => q.getObserversCount() > 0 && q.state.dataUpdatedAt > 0)
         .map((q) => q.state.dataUpdatedAt);
-      setOldest(times.length ? Math.min(...times) : null);
-    };
-    update();
-    return cache.subscribe(update);
-  }, [client, id]);
+      return times.length ? Math.min(...times) : null;
+    },
+    () => null,
+  );
 
   const refresh = useCallback(
     () => client.refetchQueries({ predicate: isLive(id), type: "active" }),
@@ -54,7 +55,7 @@ export function DataFreshness({ className }: { className?: string }) {
         onClick={() => void refresh()}
         disabled={fetching}
         title="Refresh (R)"
-        className="inline-flex min-h-11 items-center gap-1.5 border border-line-strong px-3 font-semibold text-text transition-colors hover:border-text disabled:opacity-60"
+        className="tap inline-flex min-h-10 items-center gap-1.5 border border-line-strong px-3 font-semibold text-text transition-colors hover:border-text disabled:opacity-60 sm:min-h-11"
       >
         {/* Arrows icon: it reloads. Spins only while loading. */}
         <RefreshCw aria-hidden className={cn("size-4", fetching && "animate-spin")} />

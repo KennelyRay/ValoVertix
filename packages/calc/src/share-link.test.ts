@@ -19,6 +19,7 @@ describe("share links", () => {
       vp: 123456.4,
       paidOnly: true,
       at: 20_000 * DAY + 5_000,
+      counts: { totalSkins: 194.4, bundles: -3, battlePass: 1e9 },
     });
     expect(link).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(decodeShareLink(`#${link}`)).toEqual({
@@ -27,6 +28,7 @@ describe("share links", () => {
       vp: 123456,
       paidOnly: true,
       madeAt: 20_000 * DAY,
+      counts: { totalSkins: 194, bundles: 0, battlePass: 0xffff },
     });
   });
 
@@ -38,6 +40,7 @@ describe("share links", () => {
       vp: null,
       paidOnly: false,
       madeAt: 0,
+      counts: null,
     });
     expect(
       decodeShareLink(encodeShareLink({ skinIds: [], paidOnly: false, at: 0, vp: -1 }))?.vp,
@@ -80,8 +83,20 @@ describe("share links", () => {
     expect(decodeShareLink(enc(Uint8Array.of(1, 2, 0, 0, 5, 0)))).toBeNull();
     // A name that isn't valid UTF-8.
     expect(decodeShareLink(enc(Uint8Array.of(1, 2, 0, 0, 1, 0xff, 0, 0)))).toBeNull();
+    // Flags promise counts that aren't there.
+    expect(decodeShareLink(enc(Uint8Array.of(1, 8, 0, 0, 0, 0)))).toBeNull();
     // A skin count above the cap.
     expect(decodeShareLink(enc(Uint8Array.of(1, 0, 0, 0, 0xff, 0xff)))).toBeNull();
+  });
+
+  it("keeps counts that are not numbers at zero", () => {
+    const link = encodeShareLink({
+      skinIds: [],
+      paidOnly: true,
+      at: 0,
+      counts: { totalSkins: Number.NaN, bundles: 3, battlePass: 2 },
+    });
+    expect(decodeShareLink(link)?.counts).toEqual({ totalSkins: 0, bundles: 3, battlePass: 2 });
   });
 
   it("cleans names and makes prefixes", () => {

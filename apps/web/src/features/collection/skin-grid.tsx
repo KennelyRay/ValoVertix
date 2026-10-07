@@ -87,7 +87,7 @@ export function SkinGrid({
                 style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
               >
                 {row.items.map((o) => (
-                  <li key={o.skin.uuid}>
+                  <li key={o.skin.uuid} className="cv-auto">
                     <SkinCard
                       owned={o}
                       tier={o.skin.tierId ? tierById.get(o.skin.tierId) : undefined}

@@ -35,8 +35,7 @@ describe("share card extras", () => {
     renderApp("/share");
     await user.click(await screen.findByRole("radio", { name: /Collection/ }, { timeout: 20000 }));
     // Story size: 20 skins per card.
-    await user.click(screen.getByRole("combobox", { name: "Size" }));
-    await user.click(screen.getByRole("option", { name: /Story/ }));
+    await user.click(screen.getByRole("radio", { name: /Story/ }));
     const pages = Math.ceil(paid.length / 20);
     expect(
       await screen.findByRole(
@@ -66,8 +65,7 @@ describe("share card extras", () => {
     await screen.findByText("My locker", {}, { timeout: 20000 });
     await waitFor(() => expect(card().textContent).toMatch(/\d VP/), { timeout: 8000 });
 
-    await user.click(screen.getByRole("combobox", { name: "Accent color" }));
-    await user.click(screen.getByRole("option", { name: "Teal" }));
+    await user.click(screen.getByRole("radio", { name: "Teal" }));
     expect((card().firstElementChild as HTMLElement).style.getPropertyValue("--card-accent")).toBe(
       "#3fd0c9",
     );
@@ -83,7 +81,8 @@ describe("share card extras", () => {
   it("builds a link that holds the paid skins and nothing about the account", async () => {
     const user = userEvent.setup();
     renderApp("/share");
-    const input = await screen.findByLabelText("Your link", {}, { timeout: 20000 });
+    await user.click(await screen.findByRole("tab", { name: "Share link" }, { timeout: 20000 }));
+    const input = await screen.findByLabelText("Link to your collection", {}, { timeout: 20000 });
     await waitFor(() => expect((input as HTMLInputElement).value).toMatch(/\/c#/), {
       timeout: 8000,
     });
@@ -97,6 +96,15 @@ describe("share card extras", () => {
     expect(decoded.paidOnly).toBe(true);
     expect(decoded.skinPrefixes).toHaveLength(paid.length);
     expect(decoded.vp).toBeNull();
+    const battlePass = owned.filter((o) => o.skin.isContractReward && !o.skin.isDefault).length;
+    expect(decoded.counts).toMatchObject({
+      totalSkins: owned.filter((o) => !o.skin.isDefault).length,
+      battlePass,
+    });
+    // The preview summary shows the same totals.
+    const summary = screen.getByRole("region", { name: "Ace" });
+    expect(within(summary).getByText(String(battlePass))).toBeInTheDocument();
+    expect(within(summary).getByText("Complete bundles")).toBeInTheDocument();
   });
 });
 
@@ -129,5 +137,34 @@ describe("shared collection page", () => {
     expect(
       await screen.findByText("This link doesn't open a collection", {}, { timeout: 20000 }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("shared collection totals", () => {
+  it("shows total skins, complete bundles and battle pass skins from the link", async () => {
+    const fragment = encodeShareLink({
+      skinIds: paid.map((s) => s.uuid),
+      paidOnly: true,
+      at: 0,
+      counts: { totalSkins: 210, bundles: 12, battlePass: 31 },
+    });
+    renderApp(`/c#${fragment}`);
+    await screen.findByRole("heading", { level: 1 }, { timeout: 20000 });
+    const expected: [string, string][] = [
+      ["Total skins", "210"],
+      ["Complete bundles", "12"],
+      ["Battle pass skins", "31"],
+    ];
+    for (const [label, value] of expected) {
+      const term = screen.getByText(label);
+      expect(term.parentElement).toHaveTextContent(value);
+    }
+  });
+
+  it("still opens older links without totals", async () => {
+    renderApp(`/c#${encodeShareLink({ skinIds: paid.map((s) => s.uuid), paidOnly: true, at: 0 })}`);
+    await screen.findByRole("heading", { level: 1 }, { timeout: 20000 });
+    expect(screen.queryByText("Total skins")).not.toBeInTheDocument();
+    expect(screen.getByText("Paid skins")).toBeInTheDocument();
   });
 });

@@ -64,7 +64,7 @@ export function Toaster() {
   return (
     <div
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-4 bottom-4 z-50 flex flex-col items-end gap-2 sm:left-auto sm:w-96"
+      className="pointer-events-none fixed inset-x-4 bottom-[calc(1rem+var(--tabbar))] z-50 flex flex-col items-end gap-2 sm:left-auto sm:w-96"
     >
       {toasts.map((t) => (
         <div key={t.id} className="pointer-events-auto w-full">

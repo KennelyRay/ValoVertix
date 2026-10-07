@@ -7,6 +7,7 @@ import { Dialog, ErrorNote } from "@/components/ui/primitives";
 import { useActiveSession } from "@/features/auth/session-store";
 import { useMatchDetails } from "@/features/data";
 import { cn } from "@/lib/cn";
+import { useIsPhone } from "@/lib/use-media";
 import { fmtDateTime, fmtDec, fmtPct, queueName, titleCase } from "@/lib/format";
 
 const RESULT_TEXT = { win: "Victory", loss: "Defeat", draw: "Draw" } as const;
@@ -31,6 +32,89 @@ function PlayerName({ p, agent }: { p: ScoreboardPlayer; agent: Agent | undefine
       {p.gameName}
       <span className="text-muted">#{p.tagLine}</span>
     </span>
+  );
+}
+
+/** Phones: one compact row per player instead of a wide table. */
+function TeamList({
+  label,
+  won,
+  roundsWon,
+  players,
+  agentById,
+  myParty,
+}: {
+  label: string;
+  won: boolean;
+  roundsWon: number;
+  players: ScoreboardPlayer[];
+  agentById: Map<string, Agent>;
+  myParty: string | null;
+}) {
+  return (
+    <section aria-label={label}>
+      <p className="mb-2 flex items-baseline gap-2">
+        <span
+          className={cn("font-display text-lg font-bold uppercase", won ? "text-win" : "text-loss")}
+        >
+          {label}
+        </span>
+        <span className="font-display text-lg font-bold tabular-nums">{roundsWon}</span>
+        <span className="ml-auto text-xs uppercase tracking-wider text-muted">ACS · K/D/A</span>
+      </p>
+      <ol className="divide-y divide-line border-y border-line">
+        {players.map((p) => {
+          const agent = p.agentId ? agentById.get(p.agentId) : undefined;
+          return (
+            <li
+              key={p.subject}
+              className={cn(
+                "flex items-center gap-3 py-2 pr-1",
+                p.isMe && "bg-raised shadow-[inset_3px_0_0_var(--color-accent)] pl-2",
+              )}
+            >
+              {agent?.displayIconSmall ? (
+                <img
+                  src={agent.displayIconSmall}
+                  alt={agent.displayName}
+                  width={40}
+                  height={40}
+                  className="size-10 shrink-0 bg-bg"
+                  loading="lazy"
+                />
+              ) : (
+                <span className="size-10 shrink-0 bg-bg" />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="flex min-w-0 items-center gap-1.5 text-sm">
+                  <PlayerName p={p} agent={agent} />
+                  {p.isMe && (
+                    <span className="shrink-0 bg-accent px-1 text-[0.6rem] font-bold uppercase text-accent-ink">
+                      You
+                    </span>
+                  )}
+                  {!p.isMe && myParty && p.partyId === myParty && (
+                    <Users aria-label="In your party" className="size-3.5 shrink-0 text-muted" />
+                  )}
+                </p>
+                <p className="text-xs text-muted tabular-nums">
+                  HS {p.headshotRate === null ? "-" : fmtPct(p.headshotRate)} · ADR{" "}
+                  {p.adr === null ? "-" : Math.round(p.adr)} · FK {p.firstKills}
+                </p>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="font-display text-xl font-bold leading-none tabular-nums">
+                  {Math.round(p.acs)}
+                </p>
+                <p className="mt-0.5 text-xs tabular-nums">
+                  {p.kills}/{p.deaths}/{p.assists}
+                </p>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 
@@ -217,6 +301,8 @@ export function MatchDialog({
   tiers: Map<number, CompetitiveTier>;
 }) {
   const session = useActiveSession();
+  const phone = useIsPhone();
+  const Team = phone ? TeamList : TeamTable;
   const details = useMatchDetails(matchId);
   const puuid = session?.puuid ?? "";
   const board = useMemo(
@@ -283,7 +369,7 @@ export function MatchDialog({
           )}
 
           {board.teams.map((t, i) => (
-            <TeamTable
+            <Team
               key={t.teamId}
               label={i === 0 && board.myTeamId ? "Your team" : "Enemy team"}
               won={t.won}

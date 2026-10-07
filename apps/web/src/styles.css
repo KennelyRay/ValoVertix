@@ -434,3 +434,74 @@ html[data-motion="reduce"] *::after {
   transition-duration: 0.01ms !important;
   scroll-behavior: auto !important;
 }
+
+/* ---- Touch and phones --------------------------------------------------- */
+
+/* Height of the phone tab bar, for anything that must sit above it. */
+:root {
+  --tabbar: 0px;
+}
+@media (max-width: 1023px) {
+  html.has-tabbar {
+    --tabbar: calc(4rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* No grey tap flash, no double-tap zoom delay on controls. */
+html {
+  -webkit-tap-highlight-color: transparent;
+  text-size-adjust: 100%;
+}
+a,
+button,
+label,
+summary,
+[role="button"],
+[role="tab"],
+[role="option"] {
+  touch-action: manipulation;
+}
+
+/* The page behind an open dialog or sheet stays put. */
+html:has(dialog[open]),
+html:has([data-sheet]) {
+  overflow: hidden;
+}
+
+/* Phones: fields at 16px or more, so iOS doesn't zoom in on focus. */
+@media (max-width: 639px) {
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1em);
+  }
+}
+
+/* Bottom sheets slide up from the edge. */
+dialog.sheet[open],
+.sheet-in {
+  animation: sheet-in 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.sheet-backdrop {
+  animation: fade-in 200ms ease-out;
+}
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+/* Touch screens never hover, so presses get their own feedback. */
+@media (hover: none) {
+  .btn-valo:active,
+  .panel-interactive:active,
+  .tap:active {
+    transform: scale(0.98);
+  }
+}
+
+/* Long grids: skip rendering cards far off screen (big win on phones). */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 240px;
+}

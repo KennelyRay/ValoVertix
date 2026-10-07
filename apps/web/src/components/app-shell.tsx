@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useExpiryWatcher } from "@/features/auth/actions";
+import { useActiveSession } from "@/features/auth/session-store";
 import { useSettings } from "@/features/settings-store";
 import { cn } from "@/lib/cn";
 import { Backdrop } from "./backdrop";
 import { KeyboardShortcuts } from "./keyboard-shortcuts";
+import { MobileTabBar } from "./mobile-tab-bar";
 import { BrandMark, SiteNav } from "./site-nav";
 import { PageTransition } from "./motion";
 import { StatusBanners } from "./status-banners";
@@ -49,12 +51,14 @@ export function AppShell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const motion = useSettings((s) => s.motion);
   const [shortcuts, setShortcuts] = useState(false);
+  const session = useActiveSession();
   useEffect(() => {
     document.documentElement.dataset.motion = motion;
   }, [motion]);
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    // Bottom padding clears the phone tab bar (0 on desktop; see --tabbar).
+    <div className="flex min-h-dvh flex-col pb-[var(--tabbar)]">
       <Backdrop />
       <a
         href="#main"
@@ -77,6 +81,7 @@ export function AppShell() {
       </main>
       <Footer onShortcuts={() => setShortcuts(true)} />
       <KeyboardShortcuts open={shortcuts} setOpen={setShortcuts} />
+      {session && <MobileTabBar />}
       <Toaster />
     </div>
   );

@@ -10,6 +10,8 @@ import {
 import { m } from "framer-motion";
 import { Info, X } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useIsPhone } from "@/lib/use-media";
+import { Sheet, useSwipeDown, SheetHandle } from "./sheet";
 
 export function Panel({
   className,
@@ -97,6 +99,11 @@ export function Tabs<T extends string>({
 }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const groupId = useId();
+  // On narrow screens the tab row scrolls; keep the selected tab in view.
+  const selected = tabs.findIndex((t) => t.id === value);
+  useEffect(() => {
+    refs.current[selected]?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [selected]);
   const onKey = (e: KeyboardEvent, index: number) => {
     const delta = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
     if (!delta && e.key !== "Home" && e.key !== "End") return;
@@ -117,7 +124,7 @@ export function Tabs<T extends string>({
     <div
       role="tablist"
       aria-label={label}
-      className="flex gap-1 overflow-x-auto border-b border-line"
+      className="flex snap-x gap-1 overflow-x-auto overscroll-x-contain border-b border-line [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       {tabs.map((t, i) => (
         <button
@@ -133,7 +140,7 @@ export function Tabs<T extends string>({
           onClick={() => onChange(t.id)}
           onKeyDown={(e) => onKey(e, i)}
           className={cn(
-            "relative -mb-px min-h-11 shrink-0 px-3 font-display text-base font-semibold transition-colors",
+            "relative -mb-px min-h-11 shrink-0 snap-start px-3 font-display text-base font-semibold transition-colors",
             t.id === value ? "text-text" : "text-muted hover:text-text",
           )}
         >
@@ -166,8 +173,9 @@ export function InfoPopover({
   const [open, setOpen] = useState(false);
   const id = useId();
   const root = useRef<HTMLDivElement>(null);
+  const phone = useIsPhone();
   useEffect(() => {
-    if (!open) return;
+    if (!open || phone) return;
     const onDown = (e: PointerEvent) => {
       if (!root.current?.contains(e.target as Node)) setOpen(false);
     };
@@ -180,7 +188,7 @@ export function InfoPopover({
       document.removeEventListener("pointerdown", onDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, phone]);
   return (
     <div ref={root} className={cn("relative inline-block", className)}>
       <button
@@ -193,15 +201,29 @@ export function InfoPopover({
         <Info aria-hidden className="size-4" />
         <span className="underline decoration-dotted underline-offset-4">{label}</span>
       </button>
-      {open && (
-        <div
-          id={id}
-          role="region"
-          aria-label={label}
-          className="pop-in absolute left-0 z-30 mt-1 w-[min(22rem,calc(100vw-2rem))] border border-line-strong bg-raised p-4 text-sm leading-relaxed shadow-2xl shadow-black/60"
-        >
-          {children}
-        </div>
+      {phone ? (
+        // Phones: a bottom sheet, so it can never spill off the screen edge.
+        <Sheet open={open} onClose={() => setOpen(false)} anchor={root.current} title={label}>
+          <div
+            id={id}
+            role="region"
+            aria-label={label}
+            className="px-4 pb-4 text-sm leading-relaxed"
+          >
+            {children}
+          </div>
+        </Sheet>
+      ) : (
+        open && (
+          <div
+            id={id}
+            role="region"
+            aria-label={label}
+            className="pop-in absolute left-0 z-30 mt-1 w-[min(22rem,calc(100vw-2rem))] border border-line-strong bg-raised p-4 text-sm leading-relaxed shadow-2xl shadow-black/60"
+          >
+            {children}
+          </div>
+        )
       )}
     </div>
   );
@@ -209,7 +231,9 @@ export function InfoPopover({
 
 /**
  * Native <dialog>: focus trap, Escape and inert background come from the browser.
- * `side` renders it as a drawer on wide screens.
+ * `side` renders it as a drawer on wide screens. On phones every dialog is a
+ * bottom sheet: it grows to fit, scrolls inside, never runs off screen, and can
+ * be swiped down to close.
  */
 export function Dialog({
   open,
@@ -229,6 +253,8 @@ export function Dialog({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  const phone = useIsPhone();
+  const { dy, handlers } = useSwipeDown(onClose);
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
@@ -247,31 +273,42 @@ export function Dialog({
       onClick={(e) => {
         if (e.target === ref.current) onClose();
       }}
+      style={phone && dy ? { transform: `translateY(${dy}px)`, animation: "none" } : undefined}
       className={cn(
-        "m-0 max-h-dvh max-w-none border-line-strong bg-surface p-0 text-text",
-        side
-          ? "drawer ml-auto h-dvh w-full border-l sm:w-[34rem]"
-          : wide
-            ? "modal mx-auto mt-[4vh] w-[min(66rem,calc(100vw-1rem))] border"
-            : "modal mx-auto mt-[10vh] w-[min(32rem,calc(100vw-2rem))] border",
+        "m-0 max-w-none border-line-strong bg-surface p-0 text-text",
+        phone
+          ? "sheet mb-0 mt-auto w-full max-h-[92dvh] border-t"
+          : side
+            ? "drawer ml-auto h-dvh max-h-dvh w-full border-l sm:w-[34rem]"
+            : wide
+              ? "modal mx-auto mt-[4vh] max-h-[92dvh] w-[min(66rem,calc(100vw-1rem))] border"
+              : "modal mx-auto mt-[10vh] max-h-[80dvh] w-[min(32rem,calc(100vw-2rem))] border",
       )}
     >
       {open && (
-        <div className="flex max-h-dvh flex-col">
-          <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-2 sm:px-5">
-            <h2 id={titleId} className="min-w-0 truncate text-xl">
-              {title}
-            </h2>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close"
-              className="inline-flex min-h-11 min-w-11 items-center justify-center text-muted hover:text-text"
-            >
-              <X aria-hidden className="size-5" />
-            </button>
+        <div className="flex max-h-[inherit] flex-col">
+          <div
+            {...(phone ? handlers : {})}
+            className={cn("shrink-0 border-b border-line", phone && "touch-none select-none")}
+          >
+            {phone && <SheetHandle />}
+            <div className="flex items-center justify-between gap-3 px-4 py-2 sm:px-5">
+              <h2 id={titleId} className="min-w-0 truncate text-xl">
+                {title}
+              </h2>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center text-muted hover:text-text"
+              >
+                <X aria-hidden className="size-5" />
+              </button>
+            </div>
           </div>
-          <div className="overflow-y-auto p-4 sm:p-5">{children}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
+            {children}
+          </div>
         </div>
       )}
     </dialog>
