@@ -4,6 +4,7 @@ import { ExternalLink } from "lucide-react";
 import {
   ACCESS_URL_ERROR_MESSAGES,
   DEFAULT_SHARD,
+  MAX_ACCESS_URL_LENGTH,
   RIOT_AUTHORIZE_URL,
   SHARDS,
   SHARD_LABELS,
@@ -33,11 +34,19 @@ export function SignInPanel({
   const addSession = useSessionStore((s) => s.addSession);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [remember, setRemember] = useState(false);
+  // The copied URL is a live credential; by default, overwrite it in the clipboard.
+  const [clearClipboard, setClearClipboard] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [pendingTokens, setPendingTokens] = useState<AccessTokens | null>(null);
   const [shard, setShard] = useState<Shard>(DEFAULT_SHARD);
-  const ids = { url: useId(), remember: useId(), err: useId(), region: useId() };
+  const ids = {
+    url: useId(),
+    remember: useId(),
+    clipboard: useId(),
+    err: useId(),
+    region: useId(),
+  };
 
   async function finish(tokens: AccessTokens, pickedShard?: Shard) {
     setBusy(true);
@@ -80,6 +89,10 @@ export function SignInPanel({
       setError(ACCESS_URL_ERROR_MESSAGES[parsed.error]);
       input?.focus();
       return;
+    }
+    if (clearClipboard) {
+      // Runs inside the submit gesture, which browsers require. Best effort only.
+      void navigator.clipboard?.writeText("").catch(() => {});
     }
     void finish(parsed.tokens);
   }
@@ -161,6 +174,7 @@ export function SignInPanel({
               autoCapitalize="off"
               autoCorrect="off"
               spellCheck={false}
+              maxLength={MAX_ACCESS_URL_LENGTH}
               placeholder="https://playvalorant.com/opt_in#access_token=…"
               aria-invalid={Boolean(error)}
               aria-describedby={error ? ids.err : undefined}
@@ -188,6 +202,23 @@ export function SignInPanel({
           <span className="block text-muted">
             Stored encrypted until the token expires (about an hour). This stops casual snooping,
             not malware or other people using this browser profile.
+          </span>
+        </label>
+      </div>
+
+      <div className="flex items-start gap-3">
+        <input
+          id={ids.clipboard}
+          type="checkbox"
+          checked={clearClipboard}
+          onChange={(e) => setClearClipboard(e.target.checked)}
+          className="mt-1 size-5 shrink-0 accent-[var(--color-accent)]"
+        />
+        <label htmlFor={ids.clipboard} className="text-sm">
+          <span className="font-medium">Clear my clipboard after signing in</span>
+          <span className="block text-muted">
+            The address you copied works as a sign-in until it expires, so it shouldn&apos;t stay in
+            your clipboard.
           </span>
         </label>
       </div>

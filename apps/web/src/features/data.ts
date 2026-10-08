@@ -3,7 +3,6 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import {
   buildSkinCatalog,
   buildTierNormalizer,
-  fetchGameVersion,
   indexBy,
   indexBuddies,
   indexMapsByUrl,
@@ -38,6 +37,7 @@ import {
   type RiotClient,
 } from "@valovertix/riot";
 import { MATCH_DETAILS_PAGE } from "@/config/app";
+import { gameVersionWithFallback } from "@/lib/game-version";
 import { tierPriceVp } from "@/config/tier-prices";
 import { riotKey } from "@/lib/query-client";
 import { usePricing } from "./pricing";
@@ -55,7 +55,7 @@ export function useGameVersion() {
   const ready = useReady();
   return useQuery({
     queryKey: ["static", "version"],
-    queryFn: ({ signal }) => fetchGameVersion(fetch, signal),
+    queryFn: ({ signal }) => gameVersionWithFallback(signal),
     staleTime: HOUR,
     enabled: ready,
   });

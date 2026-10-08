@@ -9,13 +9,23 @@ export interface AccessTokens {
 }
 
 export type AccessUrlError =
-  "empty" | "not_url" | "wrong_host" | "missing_tokens" | "malformed_token" | "expired";
+  | "empty"
+  | "too_long"
+  | "not_url"
+  | "wrong_host"
+  | "missing_tokens"
+  | "malformed_token"
+  | "expired";
+
+/** Real redirect URLs are about 3,000 characters; anything far past that is not one. */
+export const MAX_ACCESS_URL_LENGTH = 8192;
 
 export type AccessUrlResult =
   { ok: true; tokens: AccessTokens } | { ok: false; error: AccessUrlError };
 
 export const ACCESS_URL_ERROR_MESSAGES: Record<AccessUrlError, string> = {
   empty: "Paste the full address from your browser's address bar.",
+  too_long: "That's far longer than a sign-in address. Copy just the URL from the address bar.",
   not_url: "That doesn't look like a web address. Copy the whole URL, starting with https://",
   wrong_host:
     "This URL isn't from playvalorant.com. Only paste the page Riot sends you to after signing in.",
@@ -33,6 +43,7 @@ export const ACCESS_URL_ERROR_MESSAGES: Record<AccessUrlError, string> = {
 export function parseAccessUrl(input: string, now = Date.now()): AccessUrlResult {
   const raw = input.trim();
   if (!raw) return { ok: false, error: "empty" };
+  if (raw.length > MAX_ACCESS_URL_LENGTH) return { ok: false, error: "too_long" };
 
   let url: URL;
   try {

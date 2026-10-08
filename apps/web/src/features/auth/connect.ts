@@ -1,4 +1,4 @@
-import { fetchGameVersion } from "@valovertix/assets";
+import { gameVersionWithFallback } from "@/lib/game-version";
 import {
   RiotApiError,
   createRiotClient,
@@ -76,7 +76,7 @@ export async function connectAccount(
   const clientVersion = (
     await step(
       "version",
-      fetchGameVersion().catch(() => {
+      gameVersionWithFallback().catch(() => {
         throw new RiotApiError("network", "static.version");
       }),
     )

@@ -16,7 +16,11 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https://media.valorant-api.com; media-src https://valorant.dyn.riotcdn.net; font-src 'self'; connect-src 'self' https://valorant-api.com https://media.valorant-api.com https://auth.riotgames.com https://entitlements.auth.riotgames.com https://riot-geo.pas.si.riotgames.com https://pd.na.a.pvp.net https://pd.eu.a.pvp.net https://pd.ap.a.pvp.net https://pd.kr.a.pvp.net; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests"
+          "value": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https://media.valorant-api.com; media-src https://valorant.dyn.riotcdn.net; font-src 'self'; connect-src 'self' https://valorant-api.com https://media.valorant-api.com https://auth.riotgames.com https://entitlements.auth.riotgames.com https://riot-geo.pas.si.riotgames.com https://pd.na.a.pvp.net https://pd.eu.a.pvp.net https://pd.ap.a.pvp.net https://pd.kr.a.pvp.net; worker-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types default; upgrade-insecure-requests"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains; preload"
         },
         {
           "key": "Referrer-Policy",
@@ -31,12 +35,24 @@
           "value": "DENY"
         },
         {
+          "key": "X-Permitted-Cross-Domain-Policies",
+          "value": "none"
+        },
+        {
           "key": "Permissions-Policy",
-          "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+          "value": "accelerometer=(), autoplay=(self), bluetooth=(), browsing-topics=(), camera=(), clipboard-read=(), clipboard-write=(self), display-capture=(), fullscreen=(self), geolocation=(), gyroscope=(), hid=(), idle-detection=(), magnetometer=(), microphone=(), midi=(), payment=(), publickey-credentials-get=(), serial=(), usb=(), xr-spatial-tracking=()"
         },
         {
           "key": "Cross-Origin-Opener-Policy",
           "value": "same-origin"
+        },
+        {
+          "key": "Cross-Origin-Resource-Policy",
+          "value": "same-origin"
+        },
+        {
+          "key": "Origin-Agent-Cluster",
+          "value": "?1"
         }
       ]
     },
@@ -46,6 +62,15 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/brand/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=604800, stale-while-revalidate=86400"
         }
       ]
     },

@@ -22,6 +22,8 @@ const DAY = 86_400_000;
 export const SHARE_NAME_MAX = 24;
 /** Keeps links comfortably short for chat apps (about 5,500 characters at most). */
 export const SHARE_SKINS_MAX = 1000;
+/** Longest fragment worth decoding (a full link is about 5,500 characters). */
+export const SHARE_FRAGMENT_MAX = 8000;
 
 export interface SharedCollection {
   /** First 8 hex digits of each skin UUID, lowercase. */
@@ -138,6 +140,7 @@ export function encodeShareLink(input: {
 
 /** Reads a link fragment; null for anything malformed, truncated or from a newer version. */
 export function decodeShareLink(fragment: string): SharedCollection | null {
+  if (fragment.length > SHARE_FRAGMENT_MAX) return null;
   const bytes = fromBase64Url(fragment.replace(/^#/, ""));
   if (!bytes || bytes.length < 6) return null;
   const view = new DataView(bytes.buffer);

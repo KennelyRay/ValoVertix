@@ -148,3 +148,12 @@ describe("identityFromTokens", () => {
     expect(identityFromTokens("garbage", fakeJwt({ acct: "x" })).riotId).toBeNull();
   });
 });
+
+describe("access URL length limit", () => {
+  it("rejects absurdly long input before parsing it", () => {
+    expect(parseAccessUrl("https://playvalorant.com/opt_in#" + "a".repeat(9000))).toEqual({
+      ok: false,
+      error: "too_long",
+    });
+  });
+});

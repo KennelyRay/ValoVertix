@@ -132,6 +132,9 @@ export async function deleteAssetCache(): Promise<void> {
   });
 }
 
+/** False after "Clear all data" until the page reloads: nothing should be written back. */
+export const isAssetCacheEnabled = () => cacheEnabled;
+
 /** Re-enables caching after deleteAssetCache (tests; a page reload does this in the app). */
 export function enableAssetCache() {
   cacheEnabled = true;

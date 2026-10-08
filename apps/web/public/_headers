@@ -4,15 +4,22 @@
 # media.valorant-api.com is in connect-src because the share card export
 # fetches images to inline them. No analytics endpoint: none is used.
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https://media.valorant-api.com; media-src https://valorant.dyn.riotcdn.net; font-src 'self'; connect-src 'self' https://valorant-api.com https://media.valorant-api.com https://auth.riotgames.com https://entitlements.auth.riotgames.com https://riot-geo.pas.si.riotgames.com https://pd.na.a.pvp.net https://pd.eu.a.pvp.net https://pd.ap.a.pvp.net https://pd.kr.a.pvp.net; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https://media.valorant-api.com; media-src https://valorant.dyn.riotcdn.net; font-src 'self'; connect-src 'self' https://valorant-api.com https://media.valorant-api.com https://auth.riotgames.com https://entitlements.auth.riotgames.com https://riot-geo.pas.si.riotgames.com https://pd.na.a.pvp.net https://pd.eu.a.pvp.net https://pd.ap.a.pvp.net https://pd.kr.a.pvp.net; worker-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types default; upgrade-insecure-requests
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
   Referrer-Policy: no-referrer
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
-  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  X-Permitted-Cross-Domain-Policies: none
+  Permissions-Policy: accelerometer=(), autoplay=(self), bluetooth=(), browsing-topics=(), camera=(), clipboard-read=(), clipboard-write=(self), display-capture=(), fullscreen=(self), geolocation=(), gyroscope=(), hid=(), idle-detection=(), magnetometer=(), microphone=(), midi=(), payment=(), publickey-credentials-get=(), serial=(), usb=(), xr-spatial-tracking=()
   Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
+  Origin-Agent-Cluster: ?1
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+/brand/*
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
 
 /mockServiceWorker.js
   Cache-Control: no-cache

@@ -10,6 +10,7 @@ import {
 } from "./endpoints";
 import { RiotApiError, kindForStatus, parseRetryAfter } from "./errors";
 import { buildPdHeaders } from "./headers";
+import { BlockedRequestError, createLimiter, isRiotUrl, timeoutSignal } from "./limits";
 import {
   accountXpSchema,
   competitiveUpdatesSchema,
@@ -37,57 +38,77 @@ interface RequestOptions {
   fetch?: FetchLike;
 }
 
+/** At most this many Riot requests in flight per tab; the rest wait their turn. */
+export const MAX_IN_FLIGHT = 6;
+/** A request that hangs this long counts as a network failure instead of piling up. */
+export const REQUEST_TIMEOUT_MS = 20_000;
+const limiter = createLimiter(MAX_IN_FLIGHT);
+
+const isAbort = (err: unknown) => err instanceof DOMException && err.name === "AbortError";
+
 async function request<S extends z.ZodType>(
   endpoint: string,
   url: string,
   schema: S,
   opts: RequestOptions = {},
 ): Promise<z.output<S>> {
+  // Checked before anything is sent: tokens only ever go to Riot's own hosts.
+  if (!isRiotUrl(url)) throw new BlockedRequestError();
   const doFetch = opts.fetch ?? globalThis.fetch.bind(globalThis);
-  let res: Response;
-  try {
-    res = await doFetch(url, {
-      method: opts.method ?? "GET",
-      headers: {
-        ...(opts.body !== undefined ? { "Content-Type": "application/json" } : {}),
-        ...opts.headers,
-      },
-      body: opts.body !== undefined ? JSON.stringify(opts.body) : null,
-      signal: opts.signal ?? null,
-      credentials: "omit",
-      cache: "no-store",
-      referrerPolicy: "no-referrer",
-    });
-  } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") throw err;
-    throw new RiotApiError("network", endpoint);
-  }
 
-  if (!res.ok) {
-    throw new RiotApiError(kindForStatus(res.status), endpoint, {
-      status: res.status,
-      retryAfterMs: parseRetryAfter(res.headers.get("Retry-After")),
-    });
-  }
+  return limiter.run(async () => {
+    const timer = timeoutSignal(REQUEST_TIMEOUT_MS, opts.signal);
+    try {
+      let res: Response;
+      try {
+        res = await doFetch(url, {
+          method: opts.method ?? "GET",
+          headers: {
+            ...(opts.body !== undefined ? { "Content-Type": "application/json" } : {}),
+            ...opts.headers,
+          },
+          body: opts.body !== undefined ? JSON.stringify(opts.body) : null,
+          signal: timer.signal,
+          credentials: "omit",
+          cache: "no-store",
+          referrerPolicy: "no-referrer",
+        });
+      } catch (err) {
+        if (timer.timedOut()) throw new RiotApiError("network", endpoint);
+        if (isAbort(err)) throw err;
+        throw new RiotApiError("network", endpoint);
+      }
 
-  let json: unknown;
-  try {
-    json = await res.json();
-  } catch (err) {
-    // A request cancelled mid-download is not a broken response.
-    if (err instanceof DOMException && err.name === "AbortError") throw err;
-    throw new RiotApiError("schema", endpoint, {
-      issues: [{ source: endpoint, path: "(root)", code: "invalid_json" }],
-    });
-  }
+      if (!res.ok) {
+        throw new RiotApiError(kindForStatus(res.status), endpoint, {
+          status: res.status,
+          retryAfterMs: parseRetryAfter(res.headers.get("Retry-After")),
+        });
+      }
 
-  const parsed = schema.safeParse(json);
-  if (!parsed.success) {
-    const issues = sanitizeIssues(endpoint, parsed.error.issues);
-    reportDrift(issues);
-    throw new RiotApiError("schema", endpoint, { issues });
-  }
-  return parsed.data;
+      let json: unknown;
+      try {
+        json = await res.json();
+      } catch (err) {
+        if (timer.timedOut()) throw new RiotApiError("network", endpoint);
+        // A request cancelled mid-download is not a broken response.
+        if (isAbort(err)) throw err;
+        throw new RiotApiError("schema", endpoint, {
+          issues: [{ source: endpoint, path: "(root)", code: "invalid_json" }],
+        });
+      }
+
+      const parsed = schema.safeParse(json);
+      if (!parsed.success) {
+        const issues = sanitizeIssues(endpoint, parsed.error.issues);
+        reportDrift(issues);
+        throw new RiotApiError("schema", endpoint, { issues });
+      }
+      return parsed.data;
+    } finally {
+      timer.done();
+    }
+  });
 }
 
 // ---- Sign-in calls -------------------------------------------------------

@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createRiotClient, fetchEntitlementsToken, fetchRegion, fetchUserInfo } from "./client";
+import {
+  createRiotClient,
+  fetchEntitlementsToken,
+  fetchRegion,
+  fetchUserInfo,
+  MAX_IN_FLIGHT,
+  REQUEST_TIMEOUT_MS,
+} from "./client";
+import { BlockedRequestError } from "./limits";
 import { onSchemaDrift } from "./drift";
 import { CLIENT_PLATFORM, ITEM_TYPE, PD_PATHS } from "./endpoints";
 import { RiotApiError, parseRetryAfter } from "./errors";
@@ -336,5 +344,63 @@ describe("storefront", () => {
       nightMarket: null,
     });
     expect(storefrontPrices(sf)).toEqual([]);
+  });
+});
+
+describe("request guards", () => {
+  it("refuses to send tokens to a non-Riot host, before any request", async () => {
+    const f = mockFetch({});
+    // A tampered session (e.g. edited storage) can't redirect the tokens elsewhere.
+    const client = createRiotClient({ ...session, shard: "evil.example.com#" as never }, f);
+    await expect(client.wallet()).rejects.toBeInstanceOf(BlockedRequestError);
+    expect(f).not.toHaveBeenCalled();
+  });
+
+  it("treats a hung request as a network failure", async () => {
+    vi.useFakeTimers();
+    const f = vi.fn(
+      (_url: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new DOMException("aborted", "AbortError")),
+          );
+        }),
+    );
+    const pending = createRiotClient(session, f).wallet();
+    const check = expect(pending).rejects.toMatchObject({ kind: "network" });
+    await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS);
+    await check;
+    vi.useRealTimers();
+  });
+
+  it("still passes a caller's cancellation through", async () => {
+    const controller = new AbortController();
+    const f = vi.fn(
+      (_url: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new DOMException("aborted", "AbortError")),
+          );
+        }),
+    );
+    const pending = createRiotClient(session, f).wallet(controller.signal);
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("runs at most MAX_IN_FLIGHT requests at once", async () => {
+    let active = 0;
+    let peak = 0;
+    const f = vi.fn(async () => {
+      active += 1;
+      peak = Math.max(peak, active);
+      await new Promise((r) => setTimeout(r, 5));
+      active -= 1;
+      return new Response(JSON.stringify({ Balances: {} }), { status: 200 });
+    });
+    const client = createRiotClient(session, f);
+    await Promise.all(Array.from({ length: MAX_IN_FLIGHT * 3 }, () => client.wallet()));
+    expect(peak).toBe(MAX_IN_FLIGHT);
+    expect(f).toHaveBeenCalledTimes(MAX_IN_FLIGHT * 3);
   });
 });

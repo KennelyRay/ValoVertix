@@ -1,3 +1,5 @@
+// Must run before any other module touches the DOM.
+import "./lib/trusted-types";
 import "@fontsource/rajdhani/latin-600.css";
 import "@fontsource/rajdhani/latin-700.css";
 import "@fontsource-variable/inter/wght.css";
@@ -13,6 +15,7 @@ import { startDemo } from "@/features/auth/actions";
 import { useSettings } from "@/features/settings-store";
 import { isDemoFlagged, startDemoWorker } from "@/lib/demo";
 import { queryClient } from "@/lib/query-client";
+import { scrubCredentialsFromUrl } from "@/lib/url-guard";
 import { router } from "@/router";
 
 function App() {
@@ -29,6 +32,8 @@ function App() {
 }
 
 async function boot() {
+  // First thing: a sign-in token in our own URL is removed before anything else runs.
+  scrubCredentialsFromUrl();
   const url = new URL(window.location.href);
   const wantsDemo = url.searchParams.get("demo") === "1";
   if (wantsDemo) {

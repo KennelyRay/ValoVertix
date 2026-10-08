@@ -28,6 +28,10 @@ const STORAGE = [
   ["Local storage, key vv.settings", "Preferences such as “hide free skins”. No account data."],
   ["Local storage, keys vv.tab.*", "The last tab you opened on each page. No account data."],
   [
+    "Local storage, key vv.gameVersion",
+    "The game version last seen, so cached game data still loads if valorant-api.com is down. No account data.",
+  ],
+  [
     "Local storage, key vv.wishlist",
     "The skins you starred, as game item IDs. No account data. Stays until you remove them or clear all data.",
   ],

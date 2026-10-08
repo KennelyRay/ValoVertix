@@ -94,16 +94,20 @@ This is the exact behavior, so the privacy page and this section can be checked 
 
 ## Updating VP prices
 
-Edit `apps/web/src/config/vp-prices.ts`:
+All money figures come from one file: `docs/valorant_vp_pricing.json` (one row per region and
+pack: `region`, `currency`, `vp_amount`, `local_price`). When Riot changes pack prices, edit
+the rows and redeploy. A new region only needs new rows; add a label and number format for it
+in `apps/web/src/config/pricing.ts`. Players pick their region in Settings → Regional pricing.
 
-1. Update `VP_PACKS_PHP` with the current packs from the PH store and change the date in the
-   comment. The peso range uses the cheapest per-VP pack (low) and the most expensive (high).
-2. Update the expected values in `apps/web/src/config/vp-prices.test.ts` and
-   `packages/calc/src/currency.test.ts` if the extreme packs changed.
-3. Update the capture date shown on the Spending page ("VP packs used for the peso estimate").
+All amounts stay labelled ESTIMATE in the UI.
 
-To add a currency, add an entry to `VP_PRICES` (symbol, locale, packs). The currency select in
-Settings lists every key automatically.
+## Security and scale
+
+- [SECURITY.md](SECURITY.md): how to report a vulnerability, and the layers that protect tokens
+  (CSP with Trusted Types, Riot-only request guard, no tokens in URLs or images, CI audit,
+  Dependabot and CodeQL).
+- [docs/scaling.md](docs/scaling.md): why a static app with no backend absorbs traffic, and what
+  the client does to stay light (caching, request limits, timeouts, outage fallback).
 
 ## Demo mode
 

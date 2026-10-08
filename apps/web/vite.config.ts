@@ -48,9 +48,14 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
+        // Libraries in their own chunks: they rarely change, so after a deploy
+        // returning visitors (and the CDN) keep them cached and only refetch app code.
         manualChunks: {
           react: ["react", "react-dom"],
           tanstack: ["@tanstack/react-router", "@tanstack/react-query"],
+          motion: ["framer-motion"],
+          zod: ["zod"],
+          icons: ["lucide-react"],
         },
       },
     },

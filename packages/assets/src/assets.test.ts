@@ -16,6 +16,7 @@ import {
   enableAssetCache,
   fetchGameVersion,
   fetchSkin,
+  isAssetCacheEnabled,
   loadStatic,
 } from "./client";
 import type { Agent, Contract, Weapon } from "./schemas";
@@ -72,7 +73,9 @@ describe("loadStatic", () => {
     await loadStatic("themes", "v1", { fetch: f });
     expect(f).toHaveBeenCalledTimes(2);
     expect((await indexedDB.databases()).map((d) => d.name)).not.toContain("valovertix-assets");
+    expect(isAssetCacheEnabled()).toBe(false);
     enableAssetCache();
+    expect(isAssetCacheEnabled()).toBe(true);
   });
 
   it("passes cancellation during the body read through", async () => {

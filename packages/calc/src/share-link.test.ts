@@ -71,6 +71,7 @@ describe("share links", () => {
         .replace(/=+$/, "");
 
     expect(decodeShareLink("")).toBeNull();
+    expect(decodeShareLink("A".repeat(8001))).toBeNull(); // too long to be real
     expect(decodeShareLink("not base64!")).toBeNull();
     expect(decodeShareLink("A")).toBeNull(); // invalid base64 length
     expect(decodeShareLink(enc(Uint8Array.of(2, 0, 0, 0, 0, 0)))).toBeNull();
