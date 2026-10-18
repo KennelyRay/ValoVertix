@@ -161,9 +161,9 @@ export function ProfileHero() {
               />
             )}
           </div>
-          <figcaption className="mt-2 max-w-32 text-xs sm:max-w-32">
+          <figcaption className="mt-2 min-w-0 text-xs sm:max-w-32">
             <span className="block text-muted">Equipped card</span>
-            <span className="block truncate font-medium text-text">{caption}</span>
+            <span className="block font-medium text-text sm:truncate">{caption}</span>
           </figcaption>
         </figure>
 
@@ -171,7 +171,21 @@ export function ProfileHero() {
           <p className="font-display text-lg font-semibold text-accent">
             {p.title?.titleText ?? (p.pending || p.failed ? " " : "No title equipped")}
           </p>
-          <h1 className="display-xl truncate text-4xl sm:text-6xl">{accountLabel(session)}</h1>
+          {/* Wraps instead of truncating: on phones a long name would otherwise hide the
+              tag. <wbr> makes the # the preferred break; the label keeps the name exact. */}
+          <h1
+            aria-label={accountLabel(session)}
+            className="display-xl text-4xl [overflow-wrap:anywhere] sm:text-6xl"
+          >
+            {session.riotId && !session.demo ? (
+              <>
+                {session.riotId.gameName}
+                <wbr />#{session.riotId.tagLine}
+              </>
+            ) : (
+              accountLabel(session)
+            )}
+          </h1>
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
             <p className="text-sm text-muted">
               {p.level !== undefined ? (

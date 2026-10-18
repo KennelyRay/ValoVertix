@@ -3,6 +3,7 @@ import "fake-indexeddb/auto";
 import { webcrypto } from "node:crypto";
 import { cleanup, configure } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll } from "vitest";
+import { resetClockSkew } from "@/lib/clock";
 import { server } from "./server";
 
 // Pages load several queries through MSW; give slow CI machines room.
@@ -75,6 +76,7 @@ beforeAll(() => {
 afterEach(() => {
   cleanup();
   server.resetHandlers();
+  resetClockSkew();
   sessionStorage.clear();
   localStorage.clear();
 });

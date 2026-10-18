@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { ExternalLink } from "lucide-react";
 import {
@@ -10,10 +10,12 @@ import {
   SHARD_LABELS,
   parseAccessUrl,
   type AccessTokens,
+  type AccessUrlResult,
   type Shard,
 } from "@valovertix/riot";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Dropdown } from "@/components/ui/dropdown";
+import { clockSkew, measureClockSkew } from "@/lib/clock";
 import { cn } from "@/lib/cn";
 import { toast } from "@/components/toast";
 import { connectErrorMessage } from "./connect-errors";
@@ -47,6 +49,12 @@ export function SignInPanel({
     err: useId(),
     region: useId(),
   };
+
+  // Token expiry is checked against this device's clock, so learn how far off it is
+  // while the user is away signing in on Riot's page.
+  useEffect(() => {
+    void measureClockSkew();
+  }, []);
 
   async function finish(tokens: AccessTokens, pickedShard?: Shard) {
     setBusy(true);
@@ -84,10 +92,20 @@ export function SignInPanel({
     const value = input?.value ?? "";
     // The URL is a live credential: clear the field whatever happens next.
     if (input) input.value = "";
-    const parsed = parseAccessUrl(value);
+    const parsed = parseAccessUrl(value, Date.now(), clockSkew());
+    if (!parsed.ok && parsed.error === "expired") {
+      // Only trust "expired" once the clock check has finished: a fast device clock
+      // makes a fresh token look expired.
+      void measureClockSkew().then(() => accept(parseAccessUrl(value, Date.now(), clockSkew())));
+      return;
+    }
+    accept(parsed);
+  }
+
+  function accept(parsed: AccessUrlResult) {
     if (!parsed.ok) {
       setError(ACCESS_URL_ERROR_MESSAGES[parsed.error]);
-      input?.focus();
+      inputRef.current?.focus();
       return;
     }
     if (clearClipboard) {

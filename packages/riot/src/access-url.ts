@@ -39,8 +39,13 @@ export const ACCESS_URL_ERROR_MESSAGES: Record<AccessUrlError, string> = {
 /**
  * Parses the playvalorant.com redirect URL Riot sends after sign-in.
  * Rejects anything that isn't https on an allowed host with a token fragment.
+ *
+ * `clockSkewMs` is how far the device clock runs ahead of real time. The JWT
+ * `exp` is on Riot's clock, so it is shifted by the skew; otherwise a device
+ * clock that runs fast reports a fresh token as already expired. The returned
+ * `expiresAt` is on the device clock, like `now`.
  */
-export function parseAccessUrl(input: string, now = Date.now()): AccessUrlResult {
+export function parseAccessUrl(input: string, now = Date.now(), clockSkewMs = 0): AccessUrlResult {
   const raw = input.trim();
   if (!raw) return { ok: false, error: "empty" };
   if (raw.length > MAX_ACCESS_URL_LENGTH) return { ok: false, error: "too_long" };
@@ -76,9 +81,14 @@ export function parseAccessUrl(input: string, now = Date.now()): AccessUrlResult
   }
 
   const expiresIn = Number(params.get("expires_in"));
+  const exp = jwtExpiry(accessToken);
+  // expires_in is relative, so it needs no skew correction.
   const expiresAt =
-    jwtExpiry(accessToken) ??
-    (Number.isFinite(expiresIn) && expiresIn > 0 ? now + expiresIn * 1000 : null);
+    exp !== null
+      ? exp + clockSkewMs
+      : Number.isFinite(expiresIn) && expiresIn > 0
+        ? now + expiresIn * 1000
+        : null;
   if (expiresAt === null) return { ok: false, error: "malformed_token" };
   if (expiresAt <= now) return { ok: false, error: "expired" };
 

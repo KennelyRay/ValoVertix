@@ -47,9 +47,14 @@ function Accounts() {
           {sessions.map((s) => (
             <li key={s.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
               <div className="min-w-0 flex-1">
-                <p className="truncate font-medium">
+                <p className="font-medium [overflow-wrap:anywhere]">
                   {accountLabel(s)}
-                  {s.id === activeId && <span className="ml-2 text-sm text-muted">(viewing)</span>}
+                  {s.id === activeId && (
+                    <>
+                      {" "}
+                      <span className="inline-block text-sm text-muted">(viewing)</span>
+                    </>
+                  )}
                 </p>
                 <p className="flex flex-wrap gap-x-3 text-sm text-muted">
                   <ExpiryIndicator session={s} />

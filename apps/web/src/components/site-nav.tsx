@@ -177,7 +177,7 @@ function MobileMenu({ onClose }: { onClose: () => void }) {
           <div className="flex items-center gap-3">
             <CardAvatar size={44} />
             <div className="min-w-0">
-              <p className="truncate font-semibold">{accountLabel(session)}</p>
+              <p className="font-semibold [overflow-wrap:anywhere]">{accountLabel(session)}</p>
               <ExpiryIndicator session={session} />
             </div>
           </div>

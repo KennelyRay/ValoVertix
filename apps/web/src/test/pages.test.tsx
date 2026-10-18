@@ -120,6 +120,41 @@ describe("paste-URL sign-in", () => {
     expect(useSessionStore.getState().sessions[0]?.shard).toBe("ap");
   });
 
+  it("accepts a fresh URL when this device's clock runs two hours fast", async () => {
+    const skew = 2 * 3600_000;
+    server.use(
+      http.head(
+        `${window.location.origin}/`,
+        () =>
+          new HttpResponse(null, { headers: { date: new Date(Date.now() - skew).toUTCString() } }),
+      ),
+    );
+    const user = userEvent.setup();
+    const { fakeAccessUrl } = await import("@valovertix/riot/test-utils");
+    renderApp("/");
+    await user.click(await screen.findByLabelText(/Paste the address/));
+    // Issued just now by Riot's clock, so by this device's clock it "expired" an hour ago.
+    await user.paste(fakeAccessUrl({ exp: Math.floor((Date.now() - skew) / 1000) + 3600 }));
+    await user.click(screen.getByRole("button", { name: "Show my account" }));
+    expect(
+      await screen.findByRole("heading", { name: "Demo Player#DEMO" }, { timeout: 8000 }),
+    ).toBeInTheDocument();
+    // The session's expiry is on this device's clock, about an hour from now.
+    const left = useSessionStore.getState().sessions[0]!.expiresAt - Date.now();
+    expect(left).toBeGreaterThan(3500_000);
+    expect(left).toBeLessThanOrEqual(3600_000 + 2000);
+  });
+
+  it("still rejects a URL that really expired", async () => {
+    const user = userEvent.setup();
+    const { fakeAccessUrl } = await import("@valovertix/riot/test-utils");
+    renderApp("/");
+    await user.click(await screen.findByLabelText(/Paste the address/));
+    await user.paste(fakeAccessUrl({ exp: Math.floor(Date.now() / 1000) - 60 }));
+    await user.click(screen.getByRole("button", { name: "Show my account" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("already expired");
+  });
+
   it("signs in from token claims when /userinfo returns 404", async () => {
     let userinfoCalls = 0;
     server.use(

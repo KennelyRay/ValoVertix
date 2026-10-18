@@ -70,7 +70,7 @@ function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
         <div className="mt-2 space-y-3 border-t border-line px-4 py-4">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="truncate font-semibold">{accountLabel(session)}</p>
+              <p className="font-semibold [overflow-wrap:anywhere]">{accountLabel(session)}</p>
               <ExpiryIndicator session={session} className="text-sm" />
             </div>
             <button

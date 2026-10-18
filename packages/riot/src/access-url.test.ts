@@ -102,6 +102,22 @@ describe("parseAccessUrl", () => {
       error: "expired",
     });
   });
+
+  it("moves exp onto the device clock when the device runs fast", () => {
+    const skew = 2 * 3600_000;
+    // Issued by Riot an instant ago; the device clock is two hours ahead.
+    const url = fakeAccessUrl({ exp: (NOW - skew) / 1000 + 3600 });
+    expect(parseAccessUrl(url, NOW)).toEqual({ ok: false, error: "expired" });
+    const result = parseAccessUrl(url, NOW, skew);
+    expect(result.ok && result.tokens.expiresAt).toBe(NOW + 3600_000);
+  });
+
+  it("does not skew-correct the relative expires_in fallback", () => {
+    const access = fakeJwt({ sub: "x" });
+    const url = `https://playvalorant.com/#access_token=${access}&id_token=${access}&expires_in=3600`;
+    const result = parseAccessUrl(url, NOW, 5 * 60_000);
+    expect(result.ok && result.tokens.expiresAt).toBe(NOW + 3600_000);
+  });
 });
 
 describe("jwt helpers", () => {
