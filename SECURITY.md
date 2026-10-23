@@ -30,8 +30,9 @@ Riot. Defences, in layers:
   `object-src 'none'`, `base-uri 'self'`, `form-action 'none'`), Trusted Types that refuse raw
   HTML and string scripts, and lint rules that reject `eval`, `innerHTML` and
   `dangerouslySetInnerHTML`.
-- **No framing or leaking**: `frame-ancestors 'none'`, `X-Frame-Options: DENY`,
-  `Referrer-Policy: no-referrer`, COOP/CORP, HSTS and a deny-by-default `Permissions-Policy`.
+- **No framing or leaking**: `frame-ancestors` allows only `https://ken-portfolio.me` (and
+  `www.`) to embed the app, so no other site can wrap it; `Referrer-Policy: no-referrer`,
+  COOP/CORP, HSTS and a deny-by-default `Permissions-Policy`.
 - **Tokens never in URLs, logs or images**: a token that lands in the address bar is removed
   at startup, errors carry endpoint labels instead of URLs, and share cards and links contain
   game item IDs only.

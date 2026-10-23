@@ -69,7 +69,9 @@ describe("token handling", () => {
       ]),
     );
     expect(csp).toContain("script-src 'self'");
-    expect(csp).toContain("frame-ancestors 'none'");
+    // Only the portfolio may frame the app. X-Frame-Options can't name an origin, so it stays off.
+    expect(csp).toContain("frame-ancestors https://ken-portfolio.me https://www.ken-portfolio.me;");
+    expect(headers).not.toContain("X-Frame-Options");
     expect(headers).toContain("Referrer-Policy: no-referrer");
     expect(headers).toContain("X-Content-Type-Options: nosniff");
   });
